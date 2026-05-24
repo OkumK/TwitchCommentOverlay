@@ -1,4 +1,10 @@
-const { DEFAULT_SETTINGS, SETTING_KEYS, normalizeSettings } = globalThis.TCO_SETTINGS;
+(() => {
+if (globalThis.TCO_CONTENT_READY) {
+  return;
+}
+globalThis.TCO_CONTENT_READY = true;
+
+const { DEFAULT_SETTINGS, SETTING_KEYS, hasOwn, normalizeSettings } = globalThis.TCO_SETTINGS;
 
 const CHAT_SELECTORS = [
   "[data-a-target='chat-line-message']",
@@ -257,7 +263,7 @@ function observeChat() {
 
 function loadSettings() {
   chrome.storage.local.get(null, (localSettings) => {
-    const hasLocal = SETTING_KEYS.some((key) => Object.hasOwn(localSettings || {}, key));
+    const hasLocal = SETTING_KEYS.some((key) => hasOwn(localSettings || {}, key));
     if (hasLocal) {
       settings = normalizeSettings(localSettings);
       createOverlay();
@@ -280,7 +286,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     return;
   }
 
-  if (Object.hasOwn(changes, "tcoTestMessageNonce")) {
+  if (hasOwn(changes, "tcoTestMessageNonce")) {
     displayComment({
       author: "TCO",
       text: "Overlay test message"
@@ -305,6 +311,28 @@ chrome.storage.onChanged.addListener((changes, area) => {
   applySettings();
 });
 
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!message) {
+    return false;
+  }
+
+  if (message.type === "TCO_TEST_MESSAGE") {
+    displayComment({
+      author: "TCO",
+      text: "Overlay test message"
+    }, { force: true });
+    sendResponse({ ok: true, diagnostics });
+    return false;
+  }
+
+  if (message.type === "TCO_GET_DIAGNOSTICS") {
+    sendResponse({ ok: true, diagnostics });
+    return false;
+  }
+
+  return false;
+});
+
 let currentUrl = location.href;
 window.setInterval(() => {
   if (location.href === currentUrl) {
@@ -319,3 +347,4 @@ window.setInterval(() => {
 }, 1000);
 
 loadSettings();
+})();

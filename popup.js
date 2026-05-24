@@ -13,6 +13,7 @@ const controls = {
 
 const diagnosticsOutput = document.querySelector("#diagnostics");
 const testOverlayButton = document.querySelector("#testOverlay");
+const TWITCH_URL_PATTERN = /^https:\/\/(www\.)?twitch\.tv\//;
 
 function readControlValue(control) {
   if (control.type === "checkbox") {
@@ -52,6 +53,77 @@ function formatDiagnostics(diagnostics) {
 
 function renderDiagnostics(diagnostics) {
   diagnosticsOutput.value = formatDiagnostics(diagnostics);
+}
+
+function renderStatus(message) {
+  diagnosticsOutput.value = message;
+}
+
+function getActiveTab(callback) {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    callback(tab);
+  });
+}
+
+function getRuntimeError() {
+  return chrome.runtime.lastError?.message || "";
+}
+
+function ensureContentScript(tab, callback) {
+  if (!tab?.id) {
+    callback(new Error("アクティブなタブを取得できません"));
+    return;
+  }
+
+  if (!TWITCH_URL_PATTERN.test(tab.url || "")) {
+    callback(new Error("Twitch の配信ページで開いてください"));
+    return;
+  }
+
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["settings.js"]
+  }, () => {
+    const settingsError = getRuntimeError();
+    if (settingsError) {
+      callback(new Error(settingsError));
+      return;
+    }
+
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"]
+    }, () => {
+      const contentError = getRuntimeError();
+      if (contentError) {
+        callback(new Error(contentError));
+        return;
+      }
+
+      callback(null, tab);
+    });
+  });
+}
+
+function sendMessageToActiveTwitchTab(message, callback) {
+  getActiveTab((tab) => {
+    ensureContentScript(tab, (error) => {
+      if (error) {
+        callback(error);
+        return;
+      }
+
+      chrome.tabs.sendMessage(tab.id, message, (response) => {
+        const messageError = getRuntimeError();
+        if (messageError) {
+          callback(new Error(messageError));
+          return;
+        }
+
+        callback(null, response);
+      });
+    });
+  });
 }
 
 chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
@@ -102,5 +174,22 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 testOverlayButton.addEventListener("click", () => {
-  chrome.storage.local.set({ tcoTestMessageNonce: Date.now() });
+  renderStatus("Twitchタブへ接続中");
+  sendMessageToActiveTwitchTab({ type: "TCO_TEST_MESSAGE" }, (error, response) => {
+    if (error) {
+      renderStatus(`表示テスト失敗\n${error.message}`);
+      return;
+    }
+
+    renderDiagnostics(response?.diagnostics);
+  });
+});
+
+sendMessageToActiveTwitchTab({ type: "TCO_GET_DIAGNOSTICS" }, (error, response) => {
+  if (error) {
+    renderStatus(error.message);
+    return;
+  }
+
+  renderDiagnostics(response?.diagnostics);
 });

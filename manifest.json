@@ -3,7 +3,7 @@
   "name": "Twitch Comment Overlay",
   "description": "Display Twitch chat messages as an overlay on Twitch watch pages.",
   "version": "0.1.0",
-  "permissions": ["storage"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "content_scripts": [
     {
       "matches": ["https://www.twitch.tv/*"],
