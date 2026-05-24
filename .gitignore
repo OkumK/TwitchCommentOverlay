@@ -32,12 +32,17 @@ node_modules/
 
 # JavaScript / TypeScript build output
 dist/
+dist-package/
 build/
 coverage/
 .next/
 .nuxt/
 .svelte-kit/
 *.tsbuildinfo
+
+# Extension package artifacts
+*.crx
+*.zip
 
 # Python cache and virtual environments
 __pycache__/
