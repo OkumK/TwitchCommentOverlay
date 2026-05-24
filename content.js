@@ -1,8 +1,33 @@
 (() => {
-if (globalThis.TCO_CONTENT_READY) {
+const CONTENT_SCRIPT_VERSION = "2026-05-24-context-guard";
+const previousContentState = globalThis.TCO_CONTENT_STATE;
+let previousContextActive = false;
+
+try {
+  previousContextActive = Boolean(previousContentState?.active && previousContentState.assertContext?.());
+} catch (_error) {
+  previousContextActive = false;
+}
+
+if (previousContentState?.version === CONTENT_SCRIPT_VERSION && previousContextActive) {
   return;
 }
-globalThis.TCO_CONTENT_READY = true;
+
+try {
+  previousContentState?.cleanup?.();
+} catch (_error) {
+  // A stale content script can already be detached from the extension context.
+}
+
+const contentState = {
+  active: true,
+  version: CONTENT_SCRIPT_VERSION,
+  assertContext: null,
+  cleanup: null
+};
+
+globalThis.TCO_CONTENT_STATE = contentState;
+globalThis.TCO_CONTENT_READY = CONTENT_SCRIPT_VERSION;
 
 const { DEFAULT_SETTINGS, SETTING_KEYS, hasOwn, normalizeSettings } = globalThis.TCO_SETTINGS;
 
@@ -51,6 +76,7 @@ let rowCursor = 0;
 let seenMessages = new WeakSet();
 let recentSignatures = new Map();
 let chatRetryTimer = null;
+let urlWatchTimer = null;
 let diagnostics = {
   observerMode: "not-started",
   chatContainerCount: 0,
@@ -59,13 +85,88 @@ let diagnostics = {
   lastMessagePreview: ""
 };
 
+function teardownContentScript() {
+  if (!contentState.active) {
+    return;
+  }
+
+  contentState.active = false;
+  observer?.disconnect();
+  observer = null;
+
+  if (chatRetryTimer) {
+    window.clearTimeout(chatRetryTimer);
+    chatRetryTimer = null;
+  }
+
+  if (urlWatchTimer) {
+    window.clearInterval(urlWatchTimer);
+    urlWatchTimer = null;
+  }
+
+  overlayRoot?.remove();
+  overlayRoot = null;
+}
+
+contentState.cleanup = teardownContentScript;
+
+function assertExtensionContextAvailable() {
+  if (typeof chrome === "undefined" || !chrome.runtime?.id) {
+    return false;
+  }
+
+  chrome.runtime.getURL("");
+  return true;
+}
+
+contentState.assertContext = assertExtensionContextAvailable;
+
+function isExtensionContextAvailable() {
+  try {
+    return assertExtensionContextAvailable();
+  } catch (_error) {
+    return false;
+  }
+}
+
+function isInvalidatedContextError(error) {
+  return error?.message?.includes("Extension context invalidated");
+}
+
+function handleChromeApiError(error) {
+  if (isInvalidatedContextError(error) || !isExtensionContextAvailable()) {
+    teardownContentScript();
+    return;
+  }
+
+  console.warn("Twitch Comment Overlay: Chrome API call failed", error);
+}
+
+function safeChromeCall(callback) {
+  if (!contentState.active || !isExtensionContextAvailable()) {
+    teardownContentScript();
+    return false;
+  }
+
+  try {
+    callback();
+    return true;
+  } catch (error) {
+    handleChromeApiError(error);
+    return false;
+  }
+}
+
 function publishDiagnostics(patch) {
   diagnostics = {
     ...diagnostics,
     ...patch,
     updatedAt: new Date().toISOString()
   };
-  chrome.storage.local.set({ tcoDiagnostics: diagnostics });
+
+  safeChromeCall(() => {
+    chrome.storage.local.set({ tcoDiagnostics: diagnostics });
+  });
 }
 
 function createOverlay() {
@@ -329,89 +430,130 @@ function observeChat() {
 }
 
 function loadSettings() {
-  chrome.storage.local.get(null, (localSettings) => {
-    const hasLocal = SETTING_KEYS.some((key) => hasOwn(localSettings || {}, key));
-    if (hasLocal) {
-      settings = normalizeSettings(localSettings);
-      createOverlay();
-      observeChat();
-      return;
-    }
+  safeChromeCall(() => {
+    chrome.storage.local.get(null, (localSettings) => {
+      if (!contentState.active) {
+        return;
+      }
 
-    chrome.storage.sync.get(DEFAULT_SETTINGS, (syncSettings) => {
-      settings = normalizeSettings(syncSettings);
-      chrome.storage.local.set(settings, () => {
+      const hasLocal = SETTING_KEYS.some((key) => hasOwn(localSettings || {}, key));
+      if (hasLocal) {
+        settings = normalizeSettings(localSettings);
         createOverlay();
         observeChat();
+        return;
+      }
+
+      safeChromeCall(() => {
+        chrome.storage.sync.get(DEFAULT_SETTINGS, (syncSettings) => {
+          if (!contentState.active) {
+            return;
+          }
+
+          settings = normalizeSettings(syncSettings);
+          safeChromeCall(() => {
+            chrome.storage.local.set(settings, () => {
+              if (!contentState.active) {
+                return;
+              }
+
+              createOverlay();
+              observeChat();
+            });
+          });
+        });
       });
     });
   });
 }
 
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local") {
-    return;
-  }
-
-  if (hasOwn(changes, "tcoTestMessageNonce")) {
-    displayComment({
-      author: "TCO",
-      text: "Overlay test message"
-    }, { force: true });
-  }
-
-  const nextSettings = { ...settings };
-  let settingsChanged = false;
-  for (const [key, change] of Object.entries(changes)) {
-    if (!SETTING_KEYS.includes(key)) {
-      continue;
+safeChromeCall(() => {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (!contentState.active) {
+      return;
     }
-    settingsChanged = true;
-    nextSettings[key] = change.newValue;
-  }
 
-  if (!settingsChanged) {
-    return;
-  }
+    if (area !== "local") {
+      return;
+    }
 
-  settings = normalizeSettings(nextSettings);
-  applySettings();
+    if (hasOwn(changes, "tcoTestMessageNonce")) {
+      displayComment({
+        author: "TCO",
+        text: "Overlay test message"
+      }, { force: true });
+    }
+
+    const nextSettings = { ...settings };
+    let settingsChanged = false;
+    for (const [key, change] of Object.entries(changes)) {
+      if (!SETTING_KEYS.includes(key)) {
+        continue;
+      }
+      settingsChanged = true;
+      nextSettings[key] = change.newValue;
+    }
+
+    if (!settingsChanged) {
+      return;
+    }
+
+    settings = normalizeSettings(nextSettings);
+    applySettings();
+  });
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message) {
-    return false;
-  }
+safeChromeCall(() => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!contentState.active) {
+      return false;
+    }
 
-  if (message.type === "TCO_TEST_MESSAGE") {
-    displayComment({
-      author: "TCO",
-      text: "Overlay test message"
-    }, { force: true });
-    sendResponse({ ok: true, diagnostics });
-    return false;
-  }
+    if (!message) {
+      return false;
+    }
 
-  if (message.type === "TCO_GET_DIAGNOSTICS") {
-    sendResponse({ ok: true, diagnostics });
-    return false;
-  }
+    if (message.type === "TCO_TEST_MESSAGE") {
+      displayComment({
+        author: "TCO",
+        text: "Overlay test message"
+      }, { force: true });
+      sendResponse({ ok: true, diagnostics });
+      return false;
+    }
 
-  return false;
+    if (message.type === "TCO_GET_DIAGNOSTICS") {
+      sendResponse({ ok: true, diagnostics });
+      return false;
+    }
+
+    return false;
+  });
 });
 
 let currentUrl = location.href;
-window.setInterval(() => {
-  if (location.href === currentUrl) {
-    return;
-  }
+if (contentState.active) {
+  urlWatchTimer = window.setInterval(() => {
+    if (!contentState.active) {
+      return;
+    }
 
-  currentUrl = location.href;
-  rowCursor = 0;
-  seenMessages = new WeakSet();
-  recentSignatures.clear();
-  observeChat();
-}, 1000);
+    if (!isExtensionContextAvailable()) {
+      teardownContentScript();
+      return;
+    }
 
-loadSettings();
+    if (location.href === currentUrl) {
+      return;
+    }
+
+    currentUrl = location.href;
+    rowCursor = 0;
+    seenMessages = new WeakSet();
+    recentSignatures.clear();
+    observeChat();
+  }, 1000);
+
+  loadSettings();
+}
 })();

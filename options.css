@@ -29,6 +29,13 @@ label {
   font-weight: 600;
 }
 
+label small {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #475569;
+}
+
 input[type="range"] {
   width: 100%;
   accent-color: #2563eb;
@@ -72,6 +79,10 @@ output {
   body {
     color: #e5e7eb;
     background: #0b1220;
+  }
+
+  label small {
+    color: #94a3b8;
   }
 
   output {

@@ -80,27 +80,38 @@ function ensureContentScript(tab, callback) {
     return;
   }
 
-  chrome.scripting.executeScript({
+  chrome.scripting.insertCSS({
     target: { tabId: tab.id },
-    files: ["settings.js"]
+    files: ["overlay.css"]
   }, () => {
-    const settingsError = getRuntimeError();
-    if (settingsError) {
-      callback(new Error(settingsError));
+    const cssError = getRuntimeError();
+    if (cssError) {
+      callback(new Error(cssError));
       return;
     }
 
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["content.js"]
+      files: ["settings.js"]
     }, () => {
-      const contentError = getRuntimeError();
-      if (contentError) {
-        callback(new Error(contentError));
+      const settingsError = getRuntimeError();
+      if (settingsError) {
+        callback(new Error(settingsError));
         return;
       }
 
-      callback(null, tab);
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"]
+      }, () => {
+        const contentError = getRuntimeError();
+        if (contentError) {
+          callback(new Error(contentError));
+          return;
+        }
+
+        callback(null, tab);
+      });
     });
   });
 }

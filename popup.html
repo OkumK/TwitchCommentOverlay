@@ -19,36 +19,43 @@
       <label>
         <span>文字サイズ</span>
         <input id="fontSize" type="range" min="16" max="56" step="1">
+        <small>コメント文字の大きさを調整します</small>
       </label>
 
       <label>
         <span>流れる速度</span>
         <input id="speed" type="range" min="5" max="24" step="1">
+        <small>値を大きくするとゆっくり流れます</small>
       </label>
 
       <label>
         <span>透明度</span>
         <input id="opacity" type="range" min="20" max="100" step="5">
+        <small>オーバーレイ全体の透け具合です</small>
       </label>
 
       <label>
         <span>表示行数</span>
         <input id="maxRows" type="range" min="3" max="20" step="1">
+        <small>同時に流れる行の最大数です</small>
       </label>
 
       <label>
         <span>上端位置</span>
         <input id="verticalStart" type="range" min="0" max="60" step="1">
+        <small>表示エリアの上端（画面上からの割合）</small>
       </label>
 
       <label>
         <span>下端位置</span>
         <input id="verticalEnd" type="range" min="40" max="100" step="1">
+        <small>表示エリアの下端（画面上からの割合）</small>
       </label>
 
       <label class="checkbox">
         <input id="showUsernames" type="checkbox">
         <span>ユーザー名を表示</span>
+        <small>コメント先頭に投稿者名を表示します</small>
       </label>
 
       <button id="testOverlay" type="button">表示テスト</button>
