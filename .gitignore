@@ -47,6 +47,7 @@ coverage/
 # Local review and store assets
 reviews/
 assets/
+tests/
 
 # Python cache and virtual environments
 __pycache__/
