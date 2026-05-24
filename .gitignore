@@ -44,6 +44,10 @@ coverage/
 *.crx
 *.zip
 
+# Local review and store assets
+reviews/
+assets/
+
 # Python cache and virtual environments
 __pycache__/
 *.py[cod]
