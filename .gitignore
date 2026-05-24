@@ -15,6 +15,9 @@ desktop.ini
 .env.*
 !.env.example
 !.env.sample
+extension.pem
+*.pem
+*.key
 
 # Logs
 logs/
