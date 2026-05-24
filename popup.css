@@ -1,0 +1,141 @@
+:root {
+  color-scheme: light dark;
+  font-family: Inter, "Segoe UI", sans-serif;
+}
+
+body {
+  width: 320px;
+  margin: 0;
+  color: #1f2937;
+  background: #f8fafc;
+}
+
+main {
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: #9146ff;
+}
+
+button {
+  width: 100%;
+  min-height: 36px;
+  margin: 8px 0 12px;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  background: #9146ff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.switch {
+  display: inline-flex;
+  margin: 0;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.switch span {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.switch span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.switch input:checked + span {
+  background: #9146ff;
+}
+
+.switch input:checked + span::after {
+  transform: translateX(20px);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox input {
+  accent-color: #9146ff;
+}
+
+.diagnostics {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.diagnostics span {
+  font-weight: 700;
+}
+
+.diagnostics output {
+  min-height: 34px;
+  white-space: pre-wrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e5e7eb;
+    background: #111827;
+  }
+
+  .diagnostics {
+    border-color: #334155;
+    color: #cbd5e1;
+  }
+}

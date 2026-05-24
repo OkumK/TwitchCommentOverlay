@@ -1,0 +1,13 @@
+{
+  "name": "twitch-comment-overlay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Twitch chat overlay Chrome extension",
+  "scripts": {
+    "test": "node node_modules/vitest/vitest.mjs run --globals",
+    "test:watch": "node node_modules/vitest/vitest.mjs --globals"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
+}

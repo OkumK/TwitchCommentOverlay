@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Twitch Comment Overlay</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Twitch Comment Overlay</h1>
+        <label class="switch">
+          <input id="enabled" type="checkbox">
+          <span></span>
+        </label>
+      </header>
+
+      <label>
+        <span>文字サイズ</span>
+        <input id="fontSize" type="range" min="16" max="56" step="1">
+      </label>
+
+      <label>
+        <span>流れる速度</span>
+        <input id="speed" type="range" min="5" max="24" step="1">
+      </label>
+
+      <label>
+        <span>透明度</span>
+        <input id="opacity" type="range" min="20" max="100" step="5">
+      </label>
+
+      <label>
+        <span>表示行数</span>
+        <input id="maxRows" type="range" min="3" max="20" step="1">
+      </label>
+
+      <label>
+        <span>上端位置</span>
+        <input id="verticalStart" type="range" min="0" max="60" step="1">
+      </label>
+
+      <label>
+        <span>下端位置</span>
+        <input id="verticalEnd" type="range" min="40" max="100" step="1">
+      </label>
+
+      <label class="checkbox">
+        <input id="showUsernames" type="checkbox">
+        <span>ユーザー名を表示</span>
+      </label>
+
+      <button id="testOverlay" type="button">表示テスト</button>
+
+      <section class="diagnostics" aria-live="polite">
+        <span>状態</span>
+        <output id="diagnostics">未確認</output>
+      </section>
+    </main>
+    <script src="settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

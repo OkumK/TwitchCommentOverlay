@@ -1,0 +1,49 @@
+#tco-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: Inter, "Segoe UI", sans-serif;
+}
+
+#tco-overlay-root.tco-hidden {
+  display: none;
+}
+
+.tco-comment {
+  position: absolute;
+  left: 100vw;
+  max-width: 90vw;
+  white-space: nowrap;
+  color: #fff;
+  font-size: var(--tco-font-size, 28px);
+  font-weight: 700;
+  line-height: 1.2;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 2px 6px rgba(0, 0, 0, 0.75);
+  animation-name: tco-slide-left;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform;
+}
+
+.tco-comment strong {
+  margin-right: 0.45em;
+  color: var(--tco-user-color, #c084fc);
+}
+
+@keyframes tco-slide-left {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-100vw - 100%));
+  }
+}
+
