@@ -36,9 +36,12 @@ const AUTHOR_SELECTORS = [
 const MESSAGE_TEXT_SELECTORS = [
   "[data-a-target='chat-message-text']",
   "[data-test-selector='chat-message-text']",
-  "[data-a-target='chat-line-message-body']",
-  "[data-test-selector='chat-line-message-body']",
   ".text-fragment"
+];
+
+const MESSAGE_BODY_SELECTORS = [
+  "[data-a-target='chat-line-message-body']",
+  "[data-test-selector='chat-line-message-body']"
 ];
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -88,9 +91,12 @@ function applySettings() {
 }
 
 function getChatContainers() {
-  return CHAT_CONTAINER_SELECTORS
+  const containers = CHAT_CONTAINER_SELECTORS
     .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
     .filter(Boolean);
+
+  // Avoid attaching multiple observers to the same element when selectors overlap.
+  return Array.from(new Set(containers));
 }
 
 function findChatMessageNode(node) {
@@ -102,37 +108,95 @@ function findChatMessageNode(node) {
     return node;
   }
 
+  const closestMessage = node.closest(CHAT_SELECTORS.join(", "));
+  if (closestMessage) {
+    return closestMessage;
+  }
+
   return node.querySelector(CHAT_SELECTORS.join(", "));
 }
 
-function getMessageParts(messageNode) {
-  const authorNode = AUTHOR_SELECTORS
-    .map((selector) => messageNode.querySelector(selector))
+function findFirstMatchingElement(root, selectors) {
+  return selectors
+    .map((selector) => root.querySelector(selector))
     .find(Boolean);
+}
 
-  const textNodes = MESSAGE_TEXT_SELECTORS
-    .flatMap((selector) => Array.from(messageNode.querySelectorAll(selector)));
+function findUniqueMatchingElements(root, selectors) {
+  const elements = new Set();
+  for (const selector of selectors) {
+    for (const element of root.querySelectorAll(selector)) {
+      elements.add(element);
+    }
+  }
 
-  const author = authorNode?.textContent?.trim() || messageNode.getAttribute("data-a-user") || "";
-  const text = textNodes
-    .map((node) => node.textContent?.trim())
+  return Array.from(elements);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeText(value) {
+  return value?.replace(/\s+/g, " ").trim() || "";
+}
+
+function stripAuthorPrefix(text, author) {
+  let normalizedText = text;
+  if (!author) {
+    return normalizedText.replace(/^[:：]\s*/, "").trim();
+  }
+
+  normalizedText = normalizedText
+    .replace(new RegExp(`^${escapeRegExp(author)}\\s*:?\\s*`, "i"), "")
+    .trim();
+
+  return normalizedText
+    .replace(/^[:：]\s*/, "")
+    .trim();
+}
+
+function isInsideAuthorNode(node, messageNode) {
+  const authorAncestor = node.closest(AUTHOR_SELECTORS.join(", "));
+  return Boolean(authorAncestor && messageNode.contains(authorAncestor));
+}
+
+function getTextFromFragments(messageNode) {
+  return findUniqueMatchingElements(messageNode, MESSAGE_TEXT_SELECTORS)
+    .filter((node) => !isInsideAuthorNode(node, messageNode))
+    .map((node) => normalizeText(node.textContent))
     .filter(Boolean)
     .join(" ")
     .trim();
+}
 
-  if (text) {
-    return { author, text };
+function getTextFromNodeWithoutAuthor(node, author) {
+  const clone = node.cloneNode(true);
+  for (const authorNode of findUniqueMatchingElements(clone, AUTHOR_SELECTORS)) {
+    authorNode.remove();
   }
 
-  const fallbackText = messageNode.textContent?.replace(/\s+/g, " ").trim() || "";
-  const normalizedText = author && fallbackText.startsWith(author)
-    ? fallbackText.slice(author.length).trim()
-    : fallbackText;
+  return stripAuthorPrefix(normalizeText(clone.textContent), author);
+}
 
-  return {
-    author,
-    text: normalizedText
-  };
+function getFallbackMessageText(messageNode, author) {
+  for (const bodyNode of findUniqueMatchingElements(messageNode, MESSAGE_BODY_SELECTORS)) {
+    const bodyText = normalizeText(bodyNode.textContent);
+    if (bodyText) {
+      return bodyText;
+    }
+  }
+
+  return getTextFromNodeWithoutAuthor(messageNode, author);
+}
+
+function getMessageParts(messageNode) {
+  const authorNode = findFirstMatchingElement(messageNode, AUTHOR_SELECTORS);
+
+  const author = authorNode?.textContent?.trim() || messageNode.getAttribute("data-a-user") || "";
+  const text = getTextFromFragments(messageNode) || getFallbackMessageText(messageNode, author);
+
+  return { author, text };
 }
 
 function isDuplicate(author, text) {
@@ -197,15 +261,18 @@ function displayComment({ author, text }, options = {}) {
 
 function handlePotentialMessage(node) {
   const messageNode = findChatMessageNode(node);
-  if (!messageNode || seenMessages.has(messageNode)) {
+  if (!messageNode) {
+    return;
+  }
+
+  const message = getMessageParts(messageNode);
+  if (!message.text || seenMessages.has(messageNode)) {
     return;
   }
 
   seenMessages.add(messageNode);
   diagnostics.matchedMessageCount += 1;
-  const message = getMessageParts(messageNode);
-
-  if (!message.text || isDuplicate(message.author, message.text)) {
+  if (isDuplicate(message.author, message.text)) {
     return;
   }
 
