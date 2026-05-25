@@ -242,19 +242,106 @@ function normalizeText(value) {
   return value?.replace(/\s+/g, " ").trim() || "";
 }
 
+function extractTextWithEmojiSupport(root) {
+  if (!(root instanceof Element)) {
+    return "";
+  }
+
+  const pieces = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  let node = walker.currentNode;
+
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent) {
+        pieces.push(node.textContent);
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node;
+      if (element instanceof HTMLImageElement) {
+        const alt = normalizeText(element.alt);
+        if (alt) {
+          pieces.push(` ${alt} `);
+        }
+      }
+    }
+
+    node = walker.nextNode();
+  }
+
+  return normalizeText(pieces.join(" "));
+}
+
 function stripAuthorPrefix(text, author) {
   let normalizedText = text;
   if (!author) {
     return normalizedText.replace(/^[:：]\s*/, "").trim();
   }
 
-  normalizedText = normalizedText
-    .replace(new RegExp(`^${escapeRegExp(author)}\\s*:?\\s*`, "i"), "")
-    .trim();
+  const authorPrefixPattern = new RegExp(`^${escapeRegExp(author)}\\s*:?\\s*`, "i");
+  while (authorPrefixPattern.test(normalizedText)) {
+    normalizedText = normalizedText.replace(authorPrefixPattern, "").trim();
+  }
+
+  const lowerText = normalizedText.toLowerCase();
+  const lowerAuthor = author.toLowerCase();
+  const authorIndex = lowerText.indexOf(lowerAuthor);
+  if (authorIndex >= 0) {
+    const afterAuthor = normalizedText.slice(authorIndex + author.length);
+    const separatorMatch = afterAuthor.match(/^\s*[:：]\s*/);
+    if (separatorMatch) {
+      normalizedText = afterAuthor.slice(separatorMatch[0].length).trim();
+    }
+  }
 
   return normalizedText
     .replace(/^[:：]\s*/, "")
     .trim();
+}
+
+function normalizeComparableText(value) {
+  return normalizeText(value).replace(/^[:：]\s*/, "").replace(/\s*[:：]\s*$/, "").toLowerCase();
+}
+
+function isLikelyAuthorOnlyText(author, text) {
+  if (!author || !text) {
+    return false;
+  }
+
+  return normalizeComparableText(author) === normalizeComparableText(text);
+}
+
+function isRepeatedAuthorOnlyText(author, text) {
+  if (!author || !text) {
+    return false;
+  }
+
+  const normalizedAuthor = normalizeComparableText(author);
+  if (!normalizedAuthor) {
+    return false;
+  }
+
+  const tokens = normalizeText(text)
+    .split(/\s+/)
+    .map((token) => normalizeComparableText(token))
+    .filter(Boolean);
+
+  return tokens.length > 1 && tokens.every((token) => token === normalizedAuthor);
+}
+
+function pickBestMessageText(author, candidates) {
+  for (const candidate of candidates) {
+    const normalized = normalizeText(candidate);
+    if (!normalized) {
+      continue;
+    }
+    if (isLikelyAuthorOnlyText(author, normalized) || isRepeatedAuthorOnlyText(author, normalized)) {
+      continue;
+    }
+    return normalized;
+  }
+
+  return "";
 }
 
 function isInsideAuthorNode(node, messageNode) {
@@ -265,7 +352,7 @@ function isInsideAuthorNode(node, messageNode) {
 function getTextFromFragments(messageNode) {
   return findUniqueMatchingElements(messageNode, MESSAGE_TEXT_SELECTORS)
     .filter((node) => !isInsideAuthorNode(node, messageNode))
-    .map((node) => normalizeText(node.textContent))
+    .map((node) => extractTextWithEmojiSupport(node))
     .filter(Boolean)
     .join(" ")
     .trim();
@@ -277,12 +364,12 @@ function getTextFromNodeWithoutAuthor(node, author) {
     authorNode.remove();
   }
 
-  return stripAuthorPrefix(normalizeText(clone.textContent), author);
+  return stripAuthorPrefix(extractTextWithEmojiSupport(clone), author);
 }
 
 function getFallbackMessageText(messageNode, author) {
   for (const bodyNode of findUniqueMatchingElements(messageNode, MESSAGE_BODY_SELECTORS)) {
-    const bodyText = normalizeText(bodyNode.textContent);
+    const bodyText = extractTextWithEmojiSupport(bodyNode);
     if (bodyText) {
       return bodyText;
     }
@@ -291,11 +378,42 @@ function getFallbackMessageText(messageNode, author) {
   return getTextFromNodeWithoutAuthor(messageNode, author);
 }
 
+function getAccessibleMessageText(messageNode, author) {
+  const candidates = [
+    messageNode,
+    ...findUniqueMatchingElements(messageNode, MESSAGE_BODY_SELECTORS),
+    ...findUniqueMatchingElements(messageNode, MESSAGE_TEXT_SELECTORS)
+  ];
+
+  for (const node of candidates) {
+    const ariaLabel = stripAuthorPrefix(normalizeText(node.getAttribute("aria-label") || ""), author);
+    if (ariaLabel && !isLikelyAuthorOnlyText(author, ariaLabel)) {
+      return ariaLabel;
+    }
+
+    const title = stripAuthorPrefix(normalizeText(node.getAttribute("title") || ""), author);
+    if (title && !isLikelyAuthorOnlyText(author, title)) {
+      return title;
+    }
+  }
+
+  return "";
+}
+
 function getMessageParts(messageNode) {
   const authorNode = findFirstMatchingElement(messageNode, AUTHOR_SELECTORS);
 
   const author = authorNode?.textContent?.trim() || messageNode.getAttribute("data-a-user") || "";
-  const text = getTextFromFragments(messageNode) || getFallbackMessageText(messageNode, author);
+  const fragmentText = getTextFromFragments(messageNode);
+  const fallbackText = getFallbackMessageText(messageNode, author);
+  const accessibleText = getAccessibleMessageText(messageNode, author);
+  const retryText = getTextFromNodeWithoutAuthor(messageNode, author);
+  const text = pickBestMessageText(author, [
+    fragmentText,
+    fallbackText,
+    accessibleText,
+    retryText
+  ]);
 
   return { author, text };
 }

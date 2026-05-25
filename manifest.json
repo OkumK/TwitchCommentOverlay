@@ -4,6 +4,12 @@
   "description": "Display Twitch chat messages as an overlay on Twitch watch pages.",
   "version": "0.1.0",
   "permissions": ["activeTab", "scripting", "storage"],
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
   "content_scripts": [
     {
       "matches": ["https://www.twitch.tv/*"],
@@ -14,7 +20,13 @@
   ],
   "action": {
     "default_title": "Twitch Comment Overlay",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
   },
   "options_ui": {
     "page": "options.html",

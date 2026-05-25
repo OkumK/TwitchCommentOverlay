@@ -4,7 +4,7 @@
   z-index: 2147483647;
   pointer-events: none;
   overflow: hidden;
-  font-family: Inter, "Segoe UI", sans-serif;
+  font-family: Inter, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
 
 #tco-overlay-root.tco-hidden {
@@ -46,4 +46,3 @@
     transform: translateX(calc(-100vw - 100%));
   }
 }
-

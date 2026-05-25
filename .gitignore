@@ -46,7 +46,10 @@ coverage/
 
 # Local review and store assets
 reviews/
-assets/
+assets/*
+!assets/icons/
+assets/icons/*
+!assets/icons/icon-*.png
 tests/
 
 # Python cache and virtual environments
