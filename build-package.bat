@@ -19,6 +19,7 @@ if errorlevel 1 (
 )
 
 set FILES=manifest.json settings.js content.js overlay.css popup.html popup.css popup.js options.html options.css options.js
+set ICON_DIR=assets\icons
 
 for %%F in (%FILES%) do (
   if not exist "%SRC_DIR%%%F" (
@@ -27,12 +28,23 @@ for %%F in (%FILES%) do (
   )
 )
 
+if not exist "%SRC_DIR%%ICON_DIR%\icon-128.png" (
+  echo [ERROR] Missing required icon directory: %ICON_DIR%
+  exit /b 1
+)
+
 for %%F in (%FILES%) do (
   copy /y "%SRC_DIR%%%F" "%DIST_DIR%\" >nul
   if errorlevel 1 (
     echo [ERROR] Failed to copy: %%F
     exit /b 1
   )
+)
+
+xcopy /e /i /y "%SRC_DIR%%ICON_DIR%" "%DIST_DIR%\%ICON_DIR%\" >nul
+if errorlevel 1 (
+  echo [ERROR] Failed to copy: %ICON_DIR%
+  exit /b 1
 )
 
 echo [INFO] Package folder created successfully.
