@@ -6,14 +6,33 @@ const controls = {
   speed: document.querySelector("#speed"),
   opacity: document.querySelector("#opacity"),
   maxRows: document.querySelector("#maxRows"),
-  verticalStart: document.querySelector("#verticalStart"),
-  verticalEnd: document.querySelector("#verticalEnd"),
-  showUsernames: document.querySelector("#showUsernames")
+  showUsernames: document.querySelector("#showUsernames"),
+  showBadges: document.querySelector("#showBadges"),
+  showEmotes: document.querySelector("#showEmotes"),
+  hideSubscriptions: document.querySelector("#hideSubscriptions"),
+  hideCheers: document.querySelector("#hideCheers")
+};
+
+const valueOutputs = {
+  fontSize: document.querySelector("#fontSizeValue"),
+  speed: document.querySelector("#speedValue"),
+  opacity: document.querySelector("#opacityValue"),
+  maxRows: document.querySelector("#maxRowsValue")
 };
 
 const diagnosticsOutput = document.querySelector("#diagnostics");
 const testOverlayButton = document.querySelector("#testOverlay");
+const areaEditor = document.querySelector("#areaEditor");
+const areaSelection = document.querySelector("#areaSelection");
+const areaStartHandle = document.querySelector("#areaStartHandle");
+const areaEndHandle = document.querySelector("#areaEndHandle");
+const areaRangeLabel = document.querySelector("#areaRangeLabel");
 const TWITCH_URL_PATTERN = /^https:\/\/(www\.)?twitch\.tv\//;
+const MIN_VERTICAL_GAP = 10;
+
+let areaDragState = null;
+let verticalStart = DEFAULT_SETTINGS.verticalStart;
+let verticalEnd = DEFAULT_SETTINGS.verticalEnd;
 
 function readControlValue(control) {
   if (control.type === "checkbox") {
@@ -32,23 +51,133 @@ function writeControlValue(control, value) {
   control.value = String(value);
 }
 
-function formatDiagnostics(diagnostics) {
-  if (!diagnostics) {
-    return "content script の診断情報はまだありません";
+function formatSliderValue(key, value) {
+  if (key === "fontSize") {
+    return `${value} px`;
+  }
+  if (key === "speed") {
+    return `${value} 秒`;
+  }
+  if (key === "opacity") {
+    return `${value}%`;
+  }
+  if (key === "maxRows") {
+    return `${value} 行`;
+  }
+  return String(value);
+}
+
+function syncSliderOutputs() {
+  for (const key of Object.keys(valueOutputs)) {
+    const output = valueOutputs[key];
+    const control = controls[key];
+    if (!output || !control) {
+      continue;
+    }
+    output.value = formatSliderValue(key, readControlValue(control));
+  }
+}
+
+function syncAreaEditor() {
+  if (!areaEditor || !areaSelection || !areaStartHandle || !areaEndHandle || !areaRangeLabel) {
+    return;
   }
 
-  const status = diagnostics.observerMode === "chat-container"
-    ? "チャット欄を監視中"
-    : "ページ全体を補助監視中";
-  const messageCount = diagnostics.matchedMessageCount || 0;
-  const updatedAt = diagnostics.updatedAt
-    ? `\n更新: ${new Date(diagnostics.updatedAt).toLocaleTimeString()}`
-    : "";
-  const lastMessage = diagnostics.lastMessagePreview
-    ? `\n最新: ${diagnostics.lastMessagePreview}`
-    : "";
+  areaSelection.style.top = `${verticalStart}%`;
+  areaSelection.style.height = `${Math.max(verticalEnd - verticalStart, MIN_VERTICAL_GAP)}%`;
+  areaStartHandle.style.top = `${verticalStart}%`;
+  areaEndHandle.style.top = `${verticalEnd}%`;
+  areaRangeLabel.value = `${verticalStart}% - ${verticalEnd}%`;
+}
 
-  return `${status}\nコンテナ: ${diagnostics.chatContainerCount || 0} / 検出: ${messageCount}${lastMessage}${updatedAt}`;
+function persistVerticalRange() {
+  chrome.storage.local.set({
+    verticalStart,
+    verticalEnd
+  });
+}
+
+function setVerticalRange(nextStart, nextEnd) {
+  verticalStart = clamp(nextStart, ...POPUP_RANGES.verticalStart);
+  verticalEnd = clamp(nextEnd, ...POPUP_RANGES.verticalEnd);
+
+  if (verticalEnd - verticalStart < MIN_VERTICAL_GAP) {
+    if (areaDragState?.handle === "start") {
+      verticalStart = verticalEnd - MIN_VERTICAL_GAP;
+      verticalStart = clamp(verticalStart, ...POPUP_RANGES.verticalStart);
+    } else {
+      verticalEnd = verticalStart + MIN_VERTICAL_GAP;
+      verticalEnd = clamp(verticalEnd, ...POPUP_RANGES.verticalEnd);
+    }
+  }
+
+  syncAreaEditor();
+  persistVerticalRange();
+}
+
+function getPointerVerticalPercent(event) {
+  const rect = areaEditor.getBoundingClientRect();
+  const offsetY = event.clientY - rect.top;
+  const ratio = clamp(offsetY / rect.height, 0, 1);
+  return Math.round(ratio * 100);
+}
+
+function updateDraggedHandle(event) {
+  if (!areaDragState) {
+    return;
+  }
+
+  const position = getPointerVerticalPercent(event);
+  if (areaDragState.handle === "start") {
+    const nextStart = clamp(position, POPUP_RANGES.verticalStart[0], verticalEnd - MIN_VERTICAL_GAP);
+    setVerticalRange(nextStart, verticalEnd);
+    return;
+  }
+
+  const nextEnd = clamp(position, verticalStart + MIN_VERTICAL_GAP, POPUP_RANGES.verticalEnd[1]);
+  setVerticalRange(verticalStart, nextEnd);
+}
+
+function attachAreaEditorEvents() {
+  if (!areaEditor || !areaStartHandle || !areaEndHandle) {
+    return;
+  }
+
+  const beginDrag = (handle, event) => {
+    event.preventDefault();
+    areaDragState = { handle };
+    updateDraggedHandle(event);
+  };
+
+  areaStartHandle.addEventListener("pointerdown", (event) => beginDrag("start", event));
+  areaEndHandle.addEventListener("pointerdown", (event) => beginDrag("end", event));
+
+  window.addEventListener("pointermove", (event) => {
+    if (!areaDragState) {
+      return;
+    }
+    updateDraggedHandle(event);
+  });
+
+  window.addEventListener("pointerup", () => {
+    areaDragState = null;
+  });
+}
+
+function formatDiagnostics(diagnostics) {
+  if (!diagnostics) {
+    return "監視状態: 未接続";
+  }
+
+  const monitorState = diagnostics.observerMode === "chat-container"
+    ? "監視状態: 配信チャットに接続中"
+    : "監視状態: ページを探索中";
+  const messageCount = `検出コメント数: ${diagnostics.matchedMessageCount || 0}`;
+  const lastMessage = diagnostics.lastMessageAt
+    ? `最終コメント: ${new Date(diagnostics.lastMessageAt).toLocaleTimeString()}`
+    : "最終コメント: まだありません";
+
+  return `${monitorState}\n${messageCount}\n${lastMessage}`;
 }
 
 function renderDiagnostics(diagnostics) {
@@ -138,29 +267,23 @@ function sendMessageToActiveTwitchTab(message, callback) {
 }
 
 chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
+  verticalStart = clamp(Number(settings.verticalStart), ...POPUP_RANGES.verticalStart);
+  verticalEnd = clamp(Number(settings.verticalEnd), ...POPUP_RANGES.verticalEnd);
+  if (verticalEnd - verticalStart < MIN_VERTICAL_GAP) {
+    verticalEnd = clamp(verticalStart + MIN_VERTICAL_GAP, ...POPUP_RANGES.verticalEnd);
+  }
+
   for (const [key, control] of Object.entries(controls)) {
     writeControlValue(control, settings[key]);
     control.addEventListener("input", () => {
-      const nextSettings = {};
-      nextSettings[key] = readControlValue(control);
-
-      if (key === "verticalStart" || key === "verticalEnd") {
-        const start = key === "verticalStart" ? nextSettings.verticalStart : readControlValue(controls.verticalStart);
-        const end = key === "verticalEnd" ? nextSettings.verticalEnd : readControlValue(controls.verticalEnd);
-        if (start >= end) {
-          if (key === "verticalStart") {
-            nextSettings.verticalEnd = clamp(start + 10, ...POPUP_RANGES.verticalEnd);
-            writeControlValue(controls.verticalEnd, nextSettings.verticalEnd);
-          } else {
-            nextSettings.verticalStart = clamp(end - 10, ...POPUP_RANGES.verticalStart);
-            writeControlValue(controls.verticalStart, nextSettings.verticalStart);
-          }
-        }
-      }
-
-      chrome.storage.local.set(nextSettings);
+      chrome.storage.local.set({ [key]: readControlValue(control) });
+      syncSliderOutputs();
     });
   }
+
+  syncSliderOutputs();
+  syncAreaEditor();
+  attachAreaEditorEvents();
 });
 
 chrome.storage.local.get("tcoDiagnostics", ({ tcoDiagnostics }) => {
@@ -176,16 +299,31 @@ chrome.storage.onChanged.addListener((changes, area) => {
     renderDiagnostics(changes.tcoDiagnostics.newValue);
   }
 
+  if (changes.verticalStart || changes.verticalEnd) {
+    if (changes.verticalStart) {
+      verticalStart = clamp(Number(changes.verticalStart.newValue), ...POPUP_RANGES.verticalStart);
+    }
+    if (changes.verticalEnd) {
+      verticalEnd = clamp(Number(changes.verticalEnd.newValue), ...POPUP_RANGES.verticalEnd);
+    }
+    if (verticalEnd - verticalStart < MIN_VERTICAL_GAP) {
+      verticalEnd = clamp(verticalStart + MIN_VERTICAL_GAP, ...POPUP_RANGES.verticalEnd);
+    }
+    syncAreaEditor();
+  }
+
   for (const [key, change] of Object.entries(changes)) {
     if (!SETTING_KEYS.includes(key) || !controls[key]) {
       continue;
     }
     writeControlValue(controls[key], change.newValue);
   }
+
+  syncSliderOutputs();
 });
 
 testOverlayButton.addEventListener("click", () => {
-  renderStatus("Twitchタブへ接続中");
+  renderStatus("表示テストを送信中...");
   sendMessageToActiveTwitchTab({ type: "TCO_TEST_MESSAGE" }, (error, response) => {
     if (error) {
       renderStatus(`表示テスト失敗\n${error.message}`);

@@ -26,7 +26,7 @@
       <label>
         <span>流れる速度</span>
         <input id="speed" type="range" min="5" max="24" step="1">
-        <small>値を大きくするとゆっくり流れます</small>
+        <small>コメントが画面に表示される秒数です</small>
       </label>
 
       <label>
@@ -43,13 +43,13 @@
 
       <label>
         <span>上端位置</span>
-        <input id="verticalStart" type="range" min="0" max="60" step="1">
+        <input id="verticalStart" type="range" min="0" max="90" step="1">
         <small>表示エリアの上端（画面上からの割合）</small>
       </label>
 
       <label>
         <span>下端位置</span>
-        <input id="verticalEnd" type="range" min="40" max="100" step="1">
+        <input id="verticalEnd" type="range" min="10" max="100" step="1">
         <small>表示エリアの下端（画面上からの割合）</small>
       </label>
 
@@ -57,6 +57,30 @@
         <input id="showUsernames" type="checkbox">
         <span>ユーザー名を表示</span>
         <small>コメント先頭に投稿者名を表示します</small>
+      </label>
+
+      <label class="checkbox">
+        <input id="showBadges" type="checkbox">
+        <span>バッジを表示</span>
+        <small>投稿者名付近に表示されるTwitchバッジを表示します</small>
+      </label>
+
+      <label class="checkbox">
+        <input id="showEmotes" type="checkbox">
+        <span>スタンプを表示</span>
+        <small>チャット内のスタンプ画像を表示します</small>
+      </label>
+
+      <label class="checkbox">
+        <input id="hideSubscriptions" type="checkbox">
+        <span>サブスクを表示しない</span>
+        <small>サブスク通知コメントを非表示にします</small>
+      </label>
+
+      <label class="checkbox">
+        <input id="hideCheers" type="checkbox">
+        <span>チアーを表示しない</span>
+        <small>チアー（Bits）付きコメントを非表示にします</small>
       </label>
 
       <footer>

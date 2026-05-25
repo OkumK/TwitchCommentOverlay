@@ -1,5 +1,5 @@
 (() => {
-const CONTENT_SCRIPT_VERSION = "2026-05-24-context-guard";
+const CONTENT_SCRIPT_VERSION = "2026-05-26-badge-overlay";
 const previousContentState = globalThis.TCO_CONTENT_STATE;
 let previousContextActive = false;
 
@@ -69,10 +69,22 @@ const MESSAGE_BODY_SELECTORS = [
   "[data-test-selector='chat-line-message-body']"
 ];
 
+const VIDEO_CHAT_MESSAGE_SELECTOR = ".video-chat__message";
+const EMOTE_CONTAINER_SELECTOR = "[data-a-target='emote-name']";
+const EMOTE_IMAGE_SELECTOR = ".chat-line__message--emote, .chat-image";
+const CHAT_BADGE_SELECTOR = ".chat-badge";
+const CHEER_AMOUNT_SELECTORS = [
+  ".chat-line__message--cheer-amount",
+  "[data-test-selector='chat-line-message-cheer-amount']",
+  "[data-test-selector='bits-cheer-amount']"
+];
+
 let settings = { ...DEFAULT_SETTINGS };
 let overlayRoot = null;
 let observer = null;
 let rowCursor = 0;
+let rowReservations = [];
+let queuedCommentTimers = new Set();
 let seenMessages = new WeakSet();
 let recentSignatures = new Map();
 let chatRetryTimer = null;
@@ -81,8 +93,7 @@ let diagnostics = {
   observerMode: "not-started",
   chatContainerCount: 0,
   matchedMessageCount: 0,
-  lastMessageAt: null,
-  lastMessagePreview: ""
+  lastMessageAt: null
 };
 
 function teardownContentScript() {
@@ -103,6 +114,12 @@ function teardownContentScript() {
     window.clearInterval(urlWatchTimer);
     urlWatchTimer = null;
   }
+
+  for (const timer of queuedCommentTimers) {
+    window.clearTimeout(timer);
+  }
+  queuedCommentTimers.clear();
+  rowReservations = [];
 
   overlayRoot?.remove();
   overlayRoot = null;
@@ -138,8 +155,6 @@ function handleChromeApiError(error) {
     teardownContentScript();
     return;
   }
-
-  console.warn("Twitch Comment Overlay: Chrome API call failed", error);
 }
 
 function safeChromeCall(callback) {
@@ -214,7 +229,62 @@ function findChatMessageNode(node) {
     return closestMessage;
   }
 
-  return node.querySelector(CHAT_SELECTORS.join(", "));
+  const videoChatMessageContainer = findVideoChatMessageContainer(node);
+  if (videoChatMessageContainer) {
+    return videoChatMessageContainer;
+  }
+
+  const nestedMessage = node.querySelector(CHAT_SELECTORS.join(", "));
+  if (nestedMessage) {
+    return nestedMessage;
+  }
+
+  // Fallback for layouts where only author attributes are present on descendants.
+  // Accept nodes that actually contain message-bearing elements/attributes.
+  const dataUserNode = node.matches("[data-a-user]") ? node : node.querySelector("[data-a-user]");
+  if (!dataUserNode) {
+    return null;
+  }
+
+  const messageContainer = dataUserNode.closest(
+    [
+      ".chat-line__message-container",
+      ".chat-line__message",
+      "[data-a-target='chat-line-message']",
+      "[data-test-selector='chat-line-message']",
+      VIDEO_CHAT_MESSAGE_SELECTOR
+    ].join(", ")
+  ) || dataUserNode.parentElement || dataUserNode;
+
+  const hasMessageBody = Boolean(findFirstMatchingElement(messageContainer, MESSAGE_BODY_SELECTORS));
+  const hasMessageTextFragments = findUniqueMatchingElements(messageContainer, MESSAGE_TEXT_SELECTORS).length > 0;
+  const accessibleCandidates = [messageContainer, ...Array.from(messageContainer.querySelectorAll("*"))];
+  const hasAccessibleText = accessibleCandidates.some((candidateNode) => Boolean(
+    normalizeText(candidateNode.getAttribute("aria-label") || "") ||
+    normalizeText(candidateNode.getAttribute("title") || "")
+  ));
+
+  if (hasMessageBody || hasMessageTextFragments || hasAccessibleText) {
+    return messageContainer;
+  }
+
+  return null;
+}
+
+function findVideoChatMessageContainer(node) {
+  const messageBody = node.matches(VIDEO_CHAT_MESSAGE_SELECTOR)
+    ? node
+    : node.querySelector(VIDEO_CHAT_MESSAGE_SELECTOR);
+  if (!messageBody) {
+    return null;
+  }
+
+  const authorContainer = findFirstMatchingElement(node, AUTHOR_SELECTORS);
+  if (!authorContainer && node !== messageBody) {
+    return messageBody;
+  }
+
+  return node;
 }
 
 function findFirstMatchingElement(root, selectors) {
@@ -240,6 +310,34 @@ function escapeRegExp(value) {
 
 function normalizeText(value) {
   return value?.replace(/\s+/g, " ").trim() || "";
+}
+
+function includesAnyKeyword(value, keywords) {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return keywords.some((keyword) => normalized.includes(keyword));
+}
+
+function hasDataMarkerKeywords(root, keywords) {
+  if (!(root instanceof Element)) {
+    return false;
+  }
+
+  const candidates = [
+    root,
+    ...Array.from(root.querySelectorAll("[data-test-selector], [data-a-target]"))
+  ];
+  for (const candidate of candidates) {
+    const marker = `${candidate.getAttribute("data-test-selector") || ""} ${candidate.getAttribute("data-a-target") || ""}`;
+    if (includesAnyKeyword(marker, keywords)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function extractTextWithEmojiSupport(root) {
@@ -270,6 +368,159 @@ function extractTextWithEmojiSupport(root) {
   }
 
   return normalizeText(pieces.join(" "));
+}
+
+function getMessageContentRoots(messageNode) {
+  const bodyRoots = findUniqueMatchingElements(messageNode, MESSAGE_BODY_SELECTORS);
+  if (bodyRoots.length > 0) {
+    return bodyRoots;
+  }
+
+  const videoRoots = findUniqueMatchingElements(messageNode, [VIDEO_CHAT_MESSAGE_SELECTOR]);
+  if (videoRoots.length > 0) {
+    return videoRoots;
+  }
+
+  return [messageNode];
+}
+
+function isMessageEmoteImage(element) {
+  if (!(element instanceof HTMLImageElement)) {
+    return false;
+  }
+
+  if (element.classList.contains("chat-badge")) {
+    return false;
+  }
+
+  return (
+    element.matches(EMOTE_IMAGE_SELECTOR) ||
+    Boolean(element.closest(EMOTE_CONTAINER_SELECTOR)) ||
+    Boolean(normalizeText(element.alt))
+  );
+}
+
+function normalizeRenderableParts(parts, author) {
+  if (parts.length === 0) {
+    return parts;
+  }
+
+  const normalized = [];
+  let textBuffer = "";
+
+  const flushText = () => {
+    if (!textBuffer) {
+      return;
+    }
+    normalized.push({ type: "text", text: textBuffer });
+    textBuffer = "";
+  };
+
+  for (const part of parts) {
+    if (part.type === "text") {
+      textBuffer += part.text;
+      continue;
+    }
+    flushText();
+    normalized.push(part);
+  }
+  flushText();
+
+  for (const part of normalized) {
+    if (part.type !== "text") {
+      continue;
+    }
+    part.text = stripAuthorPrefix(part.text, author).replace(/^\s+/, "");
+    break;
+  }
+
+  const cleaned = [];
+  for (const part of normalized) {
+    if (part.type === "text") {
+      const compact = part.text.replace(/\s+/g, " ");
+      if (!compact.trim()) {
+        continue;
+      }
+      cleaned.push({ type: "text", text: compact });
+      continue;
+    }
+    cleaned.push(part);
+  }
+
+  return cleaned;
+}
+
+function partsToText(parts) {
+  const joined = parts
+    .map((part) => (part.type === "text" ? part.text : (part.alt || "")))
+    .join(" ");
+  return normalizeText(joined);
+}
+
+function extractChatBadges(messageNode) {
+  const badges = [];
+  const seen = new Set();
+
+  for (const badge of messageNode.querySelectorAll(CHAT_BADGE_SELECTOR)) {
+    if (!(badge instanceof HTMLImageElement)) {
+      continue;
+    }
+
+    const src = badge.getAttribute("src") || "";
+    if (!src) {
+      continue;
+    }
+
+    const alt = normalizeText(badge.alt || badge.getAttribute("aria-label") || badge.getAttribute("title") || "");
+    const key = `${src}\n${alt}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    badges.push({
+      alt,
+      src,
+      srcset: badge.getAttribute("srcset") || ""
+    });
+  }
+
+  return badges;
+}
+
+function extractRenderableParts(root, author) {
+  if (!(root instanceof Element)) {
+    return [];
+  }
+
+  const parts = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  let node = walker.currentNode;
+
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent) {
+        parts.push({ type: "text", text: node.textContent });
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node;
+      if (isMessageEmoteImage(element)) {
+        const alt = normalizeText(element.alt);
+        const src = element.getAttribute("src") || "";
+        if (src) {
+          parts.push({
+            type: "emote",
+            alt,
+            src,
+            srcset: element.getAttribute("srcset") || ""
+          });
+        }
+      }
+    }
+    node = walker.nextNode();
+  }
+
+  return normalizeRenderableParts(parts, author);
 }
 
 function stripAuthorPrefix(text, author) {
@@ -329,13 +580,51 @@ function isRepeatedAuthorOnlyText(author, text) {
   return tokens.length > 1 && tokens.every((token) => token === normalizedAuthor);
 }
 
-function pickBestMessageText(author, candidates) {
+function isAuthorEchoText(author, text) {
+  if (!author || !text) {
+    return false;
+  }
+
+  const normalizedAuthor = normalizeComparableText(author);
+  if (!normalizedAuthor) {
+    return false;
+  }
+
+  const compactText = normalizeText(text).toLowerCase().replace(/[\s:：]+/g, "");
+  const compactAuthor = normalizedAuthor.replace(/[\s:：]+/g, "");
+
+  if (!compactAuthor) {
+    return false;
+  }
+
+  return compactText === compactAuthor || compactText === `${compactAuthor}${compactAuthor}`;
+}
+
+function isAuthorOnlyCandidate(authorAliases, text) {
+  for (const alias of authorAliases) {
+    if (!alias) {
+      continue;
+    }
+
+    if (
+      isAuthorEchoText(alias, text) ||
+      isLikelyAuthorOnlyText(alias, text) ||
+      isRepeatedAuthorOnlyText(alias, text)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function pickBestMessageText(authorAliases, candidates) {
   for (const candidate of candidates) {
-    const normalized = normalizeText(candidate);
+    const normalized = normalizeText(candidate.text);
     if (!normalized) {
       continue;
     }
-    if (isLikelyAuthorOnlyText(author, normalized) || isRepeatedAuthorOnlyText(author, normalized)) {
+    if (candidate.skipAuthorOnly && isAuthorOnlyCandidate(authorAliases, normalized)) {
       continue;
     }
     return normalized;
@@ -358,24 +647,29 @@ function getTextFromFragments(messageNode) {
     .trim();
 }
 
-function getTextFromNodeWithoutAuthor(node, author) {
+function cloneWithoutAuthorNodes(node) {
   const clone = node.cloneNode(true);
   for (const authorNode of findUniqueMatchingElements(clone, AUTHOR_SELECTORS)) {
     authorNode.remove();
   }
 
+  return clone;
+}
+
+function getTextFromNodeWithoutAuthor(node, author) {
+  const clone = cloneWithoutAuthorNodes(node);
   return stripAuthorPrefix(extractTextWithEmojiSupport(clone), author);
 }
 
-function getFallbackMessageText(messageNode, author) {
+function getTextFromMessageBodies(messageNode) {
   for (const bodyNode of findUniqueMatchingElements(messageNode, MESSAGE_BODY_SELECTORS)) {
-    const bodyText = extractTextWithEmojiSupport(bodyNode);
+    const bodyText = extractTextWithEmojiSupport(cloneWithoutAuthorNodes(bodyNode));
     if (bodyText) {
       return bodyText;
     }
   }
 
-  return getTextFromNodeWithoutAuthor(messageNode, author);
+  return "";
 }
 
 function getAccessibleMessageText(messageNode, author) {
@@ -402,20 +696,52 @@ function getAccessibleMessageText(messageNode, author) {
 
 function getMessageParts(messageNode) {
   const authorNode = findFirstMatchingElement(messageNode, AUTHOR_SELECTORS);
-
-  const author = authorNode?.textContent?.trim() || messageNode.getAttribute("data-a-user") || "";
+  const displayAuthor = authorNode?.textContent?.trim() || "";
+  const loginAuthor = messageNode.getAttribute("data-a-user") || "";
+  const author = displayAuthor || loginAuthor;
+  const authorAliases = Array.from(new Set([author, displayAuthor, loginAuthor].filter(Boolean)));
+  const bodyText = getTextFromMessageBodies(messageNode);
   const fragmentText = getTextFromFragments(messageNode);
-  const fallbackText = getFallbackMessageText(messageNode, author);
   const accessibleText = getAccessibleMessageText(messageNode, author);
   const retryText = getTextFromNodeWithoutAuthor(messageNode, author);
-  const text = pickBestMessageText(author, [
-    fragmentText,
-    fallbackText,
-    accessibleText,
-    retryText
+  const text = pickBestMessageText(authorAliases, [
+    { text: bodyText, skipAuthorOnly: false },
+    { text: fragmentText, skipAuthorOnly: false },
+    { text: accessibleText, skipAuthorOnly: true },
+    { text: retryText, skipAuthorOnly: true }
   ]);
 
-  return { author, text };
+  const contentRoots = getMessageContentRoots(messageNode);
+  let richParts = [];
+  for (const contentRoot of contentRoots) {
+    richParts = extractRenderableParts(cloneWithoutAuthorNodes(contentRoot), author);
+    if (partsToText(richParts)) {
+      break;
+    }
+  }
+
+  return {
+    author,
+    text,
+    badges: extractChatBadges(messageNode),
+    richParts
+  };
+}
+
+function isSubscriptionNotice(messageNode) {
+  if (messageNode.classList.contains("user-notice-line")) {
+    return true;
+  }
+
+  return hasDataMarkerKeywords(messageNode, ["user-notice", "subscription"]);
+}
+
+function isCheerMessage(messageNode) {
+  if (findFirstMatchingElement(messageNode, CHEER_AMOUNT_SELECTORS)) {
+    return true;
+  }
+
+  return hasDataMarkerKeywords(messageNode, ["cheer", "bits"]);
 }
 
 function isDuplicate(author, text) {
@@ -437,6 +763,143 @@ function isDuplicate(author, text) {
   return false;
 }
 
+function getAnimationClock() {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+function getViewportWidth() {
+  return Math.max(
+    document.documentElement?.clientWidth || 0,
+    window.innerWidth || 0,
+    320
+  );
+}
+
+function getCurrentRows() {
+  return Math.max(Math.floor(settings.maxRows), 1);
+}
+
+function getCommentGapPx() {
+  return Math.max(settings.fontSize * 1.25, 24);
+}
+
+function estimateCommentWidth(comment) {
+  const textLength = comment.textContent?.length || 1;
+  const emoteCount = comment.querySelectorAll(".tco-emote").length;
+  const badgeCount = comment.querySelectorAll(".tco-badge").length;
+  return Math.max(
+    settings.fontSize * 2,
+    textLength * settings.fontSize * 0.72 +
+      emoteCount * settings.fontSize * 1.15 +
+      badgeCount * settings.fontSize * 0.95
+  );
+}
+
+function measureCommentWidth(comment) {
+  const rectWidth = comment.getBoundingClientRect?.().width || 0;
+  return Math.ceil(Math.max(rectWidth, comment.offsetWidth || 0, estimateCommentWidth(comment)));
+}
+
+function normalizeRowReservations(rows, now = getAnimationClock()) {
+  if (rowReservations.length !== rows) {
+    rowReservations = Array.from({ length: rows }, (_value, index) => rowReservations[index] || []);
+  }
+
+  for (const row of rowReservations) {
+    for (let index = row.length - 1; index >= 0; index -= 1) {
+      const reservation = row[index];
+      const animationEnded = now - reservation.startTime > reservation.durationMs + 500;
+      if (animationEnded || !reservation.element.isConnected) {
+        row.splice(index, 1);
+      }
+    }
+  }
+}
+
+function getSafeDelayForReservation(reservation, commentWidth, durationMs, now, viewportWidth) {
+  const elapsedMs = now - reservation.startTime;
+  const existingVelocity = (viewportWidth + reservation.width) / reservation.durationMs;
+  const newVelocity = (viewportWidth + commentWidth) / durationMs;
+  const currentRightEdge = viewportWidth + reservation.width - existingVelocity * elapsedMs;
+  const visibleThreshold = viewportWidth - getCommentGapPx();
+  const safeRightEdge = newVelocity > existingVelocity
+    ? Math.min(visibleThreshold, visibleThreshold * (existingVelocity / newVelocity))
+    : visibleThreshold;
+
+  if (currentRightEdge <= safeRightEdge) {
+    return 0;
+  }
+
+  return Math.max(0, (currentRightEdge - safeRightEdge) / existingVelocity);
+}
+
+function reserveCommentRow(comment, commentWidth, durationMs) {
+  const rows = getCurrentRows();
+  const now = getAnimationClock();
+  const viewportWidth = getViewportWidth();
+  const usableHeight = Math.max(settings.verticalEnd - settings.verticalStart, 10);
+  const rowHeight = usableHeight / rows;
+
+  normalizeRowReservations(rows, now);
+
+  let selectedRow = 0;
+  let selectedDelayMs = Number.POSITIVE_INFINITY;
+  for (let offset = 0; offset < rows; offset += 1) {
+    const rowIndex = (rowCursor + offset) % rows;
+    const delayMs = rowReservations[rowIndex].reduce((maxDelay, reservation) => (
+      Math.max(maxDelay, getSafeDelayForReservation(reservation, commentWidth, durationMs, now, viewportWidth))
+    ), 0);
+
+    if (delayMs < selectedDelayMs) {
+      selectedRow = rowIndex;
+      selectedDelayMs = delayMs;
+    }
+  }
+
+  const reservation = {
+    element: comment,
+    width: commentWidth,
+    startTime: now + selectedDelayMs,
+    durationMs
+  };
+  rowReservations[selectedRow].push(reservation);
+  rowCursor = (selectedRow + 1) % rows;
+
+  return {
+    rowIndex: selectedRow,
+    top: settings.verticalStart + rowHeight * selectedRow,
+    delayMs: selectedDelayMs,
+    reservation
+  };
+}
+
+function removeRowReservation(reservation) {
+  for (const row of rowReservations) {
+    const index = row.indexOf(reservation);
+    if (index !== -1) {
+      row.splice(index, 1);
+      return;
+    }
+  }
+}
+
+function activateComment(comment, rowPlacement, options) {
+  if (!contentState.active || (!settings.enabled && !options.force)) {
+    removeRowReservation(rowPlacement.reservation);
+    comment.remove();
+    return;
+  }
+
+  rowPlacement.reservation.startTime = getAnimationClock();
+  comment.style.top = `${rowPlacement.top}vh`;
+  comment.classList.remove("tco-comment--measuring");
+  publishDiagnostics({
+    lastMessageAt: new Date().toISOString()
+  });
+}
+
 function displayComment({ author, text }, options = {}) {
   if ((!settings.enabled && !options.force) || !text) {
     return;
@@ -444,19 +907,25 @@ function displayComment({ author, text }, options = {}) {
 
   const root = createOverlay();
   const comment = document.createElement("div");
-  comment.className = "tco-comment";
+  comment.className = "tco-comment tco-comment--measuring";
+  const durationMs = settings.speed * 1000;
   comment.style.animationDuration = `${settings.speed}s`;
   if (options.force) {
     root.classList.remove("tco-hidden");
   }
 
-  const usableHeight = Math.max(settings.verticalEnd - settings.verticalStart, 10);
-  const rows = Math.max(settings.maxRows, 1);
-  const rowHeight = usableHeight / rows;
-  const top = settings.verticalStart + rowHeight * (rowCursor % rows);
-  rowCursor += 1;
-
-  comment.style.top = `${top}vh`;
+  if (settings.showBadges && options.badges?.length) {
+    for (const badgePart of options.badges) {
+      const badge = document.createElement("img");
+      badge.className = "tco-badge";
+      badge.alt = badgePart.alt || "";
+      badge.src = badgePart.src;
+      if (badgePart.srcset) {
+        badge.setAttribute("srcset", badgePart.srcset);
+      }
+      comment.appendChild(badge);
+    }
+  }
 
   if (settings.showUsernames && author) {
     const authorElement = document.createElement("strong");
@@ -464,13 +933,59 @@ function displayComment({ author, text }, options = {}) {
     comment.appendChild(authorElement);
   }
 
-  comment.append(document.createTextNode(text));
+  const originalRichParts = options.richParts || [];
+  const richParts = settings.showEmotes
+    ? originalRichParts
+    : originalRichParts.filter((part) => part.type !== "emote");
+  const textFromRichParts = normalizeText(
+    richParts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join(" ")
+  );
+  const renderText = settings.showEmotes
+    ? text
+    : (originalRichParts.length > 0 ? textFromRichParts : text);
+  if (richParts.length === 0 && !renderText.trim()) {
+    return;
+  }
+
+  if (settings.showEmotes && richParts.length > 0) {
+    for (const part of richParts) {
+      if (part.type === "text") {
+        comment.append(document.createTextNode(part.text));
+        continue;
+      }
+
+      const emote = document.createElement("img");
+      emote.className = "tco-emote";
+      emote.alt = part.alt || "";
+      emote.src = part.src;
+      if (part.srcset) {
+        emote.setAttribute("srcset", part.srcset);
+      }
+      comment.appendChild(emote);
+    }
+  } else if (renderText.trim()) {
+    comment.append(document.createTextNode(renderText));
+  } else {
+    return;
+  }
   root.appendChild(comment);
-  publishDiagnostics({
-    lastMessageAt: new Date().toISOString(),
-    lastMessagePreview: text.slice(0, 80)
-  });
+  const rowPlacement = reserveCommentRow(comment, measureCommentWidth(comment), durationMs);
+
+  if (rowPlacement.delayMs > 0) {
+    const timer = window.setTimeout(() => {
+      queuedCommentTimers.delete(timer);
+      activateComment(comment, rowPlacement, options);
+    }, rowPlacement.delayMs);
+    queuedCommentTimers.add(timer);
+  } else {
+    activateComment(comment, rowPlacement, options);
+  }
+
   comment.addEventListener("animationend", () => {
+    removeRowReservation(rowPlacement.reservation);
     comment.remove();
     if (options.force) {
       applySettings();
@@ -489,13 +1004,24 @@ function handlePotentialMessage(node) {
     return;
   }
 
+  if (settings.hideSubscriptions && isSubscriptionNotice(messageNode)) {
+    return;
+  }
+
+  if (settings.hideCheers && isCheerMessage(messageNode)) {
+    return;
+  }
+
   seenMessages.add(messageNode);
   diagnostics.matchedMessageCount += 1;
   if (isDuplicate(message.author, message.text)) {
     return;
   }
 
-  displayComment(message);
+  displayComment(message, {
+    badges: message.badges,
+    richParts: message.richParts
+  });
 }
 
 function observeChat() {

@@ -10,59 +10,85 @@
     <main>
       <header>
         <h1>Twitch Comment Overlay</h1>
-        <label class="switch">
+        <label class="switch" aria-label="表示の有効化">
           <input id="enabled" type="checkbox">
           <span></span>
         </label>
       </header>
 
-      <label>
-        <span>文字サイズ</span>
-        <input id="fontSize" type="range" min="16" max="56" step="1">
-        <small>コメント文字の大きさを調整します</small>
-      </label>
+      <section class="slider-grid" aria-label="表示設定">
+        <label class="slider-card" for="fontSize">
+          <span class="slider-card__title">文字サイズ</span>
+          <output id="fontSizeValue" class="slider-card__value">28 px</output>
+          <input id="fontSize" type="range" min="16" max="56" step="1">
+        </label>
 
-      <label>
-        <span>流れる速度</span>
-        <input id="speed" type="range" min="5" max="24" step="1">
-        <small>値を大きくするとゆっくり流れます</small>
-      </label>
+        <label class="slider-card" for="speed">
+          <span class="slider-card__title">コメント表示秒数</span>
+          <output id="speedValue" class="slider-card__value">12 秒</output>
+          <input id="speed" type="range" min="5" max="24" step="1">
+        </label>
 
-      <label>
-        <span>透明度</span>
-        <input id="opacity" type="range" min="20" max="100" step="5">
-        <small>オーバーレイ全体の透け具合です</small>
-      </label>
+        <label class="slider-card" for="opacity">
+          <span class="slider-card__title">透明度</span>
+          <output id="opacityValue" class="slider-card__value">95%</output>
+          <input id="opacity" type="range" min="20" max="100" step="5">
+        </label>
 
-      <label>
-        <span>表示行数</span>
-        <input id="maxRows" type="range" min="3" max="20" step="1">
-        <small>同時に流れる行の最大数です</small>
-      </label>
+        <label class="slider-card" for="maxRows">
+          <span class="slider-card__title">表示行数</span>
+          <output id="maxRowsValue" class="slider-card__value">12 行</output>
+          <input id="maxRows" type="range" min="3" max="20" step="1">
+        </label>
+      </section>
 
-      <label>
-        <span>上端位置</span>
-        <input id="verticalStart" type="range" min="0" max="60" step="1">
-        <small>表示エリアの上端（画面上からの割合）</small>
-      </label>
+      <section class="area-panel" aria-label="表示エリア">
+        <div class="area-panel__header">
+          <span>表示エリア</span>
+          <output id="areaRangeLabel">8% - 82%</output>
+        </div>
+        <p class="area-panel__hint">上下ハンドルをドラッグして表示範囲を調整（最小幅 10%）</p>
+        <div id="areaEditor" class="area-editor" aria-hidden="true">
+          <div class="area-editor__track"></div>
+          <div id="areaSelection" class="area-editor__selection"></div>
+          <button id="areaStartHandle" class="area-editor__handle area-editor__handle--start" type="button" aria-label="上端位置"></button>
+          <button id="areaEndHandle" class="area-editor__handle area-editor__handle--end" type="button" aria-label="下端位置"></button>
+        </div>
+      </section>
 
-      <label>
-        <span>下端位置</span>
-        <input id="verticalEnd" type="range" min="40" max="100" step="1">
-        <small>表示エリアの下端（画面上からの割合）</small>
-      </label>
-
-      <label class="checkbox">
-        <input id="showUsernames" type="checkbox">
-        <span>ユーザー名を表示</span>
-        <small>コメント先頭に投稿者名を表示します</small>
-      </label>
+      <section class="toggle-list" aria-label="表示内容">
+        <label class="toggle-item" for="showUsernames">
+          <input id="showUsernames" type="checkbox">
+          <span class="toggle-item__text">ユーザー名を表示</span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="showBadges">
+          <input id="showBadges" type="checkbox">
+          <span class="toggle-item__text">バッジを表示</span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="showEmotes">
+          <input id="showEmotes" type="checkbox">
+          <span class="toggle-item__text">スタンプを表示</span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="hideSubscriptions">
+          <input id="hideSubscriptions" type="checkbox">
+          <span class="toggle-item__text">サブスクを表示しない</span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="hideCheers">
+          <input id="hideCheers" type="checkbox">
+          <span class="toggle-item__text">チアーを表示しない</span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+      </section>
 
       <button id="testOverlay" type="button">表示テスト</button>
 
       <section class="diagnostics" aria-live="polite">
         <span>状態</span>
-        <output id="diagnostics">未確認</output>
+        <output id="diagnostics">接続待ち</output>
       </section>
     </main>
     <script src="settings.js"></script>

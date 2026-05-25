@@ -1,13 +1,17 @@
 (() => {
   const DEFAULT_SETTINGS = {
     enabled: true,
-    fontSize: 28,
-    speed: 12,
-    opacity: 95,
+    fontSize: 25,
+    speed: 10,
+    opacity: 80,
     maxRows: 12,
-    verticalStart: 8,
-    verticalEnd: 82,
-    showUsernames: true
+    verticalStart: 20,
+    verticalEnd: 80,
+    showUsernames: true,
+    showBadges: false,
+    showEmotes: true,
+    hideSubscriptions: true,
+    hideCheers: true
   };
 
   const CONTENT_RANGES = {
@@ -24,8 +28,8 @@
     speed: [5, 24],
     opacity: [20, 100],
     maxRows: [3, 20],
-    verticalStart: [0, 60],
-    verticalEnd: [40, 100]
+    verticalStart: [0, 90],
+    verticalEnd: [10, 100]
   };
 
   const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
@@ -93,6 +97,10 @@
     }
 
     next.showUsernames = normalizeBoolean(next.showUsernames, DEFAULT_SETTINGS.showUsernames);
+    next.showBadges = normalizeBoolean(next.showBadges, DEFAULT_SETTINGS.showBadges);
+    next.showEmotes = normalizeBoolean(next.showEmotes, DEFAULT_SETTINGS.showEmotes);
+    next.hideSubscriptions = normalizeBoolean(next.hideSubscriptions, DEFAULT_SETTINGS.hideSubscriptions);
+    next.hideCheers = normalizeBoolean(next.hideCheers, DEFAULT_SETTINGS.hideCheers);
     next.enabled = normalizeBoolean(next.enabled, DEFAULT_SETTINGS.enabled);
     return next;
   }

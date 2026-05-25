@@ -8,7 +8,11 @@ const controls = {
   maxRows: document.querySelector("#maxRows"),
   verticalStart: document.querySelector("#verticalStart"),
   verticalEnd: document.querySelector("#verticalEnd"),
-  showUsernames: document.querySelector("#showUsernames")
+  showUsernames: document.querySelector("#showUsernames"),
+  showBadges: document.querySelector("#showBadges"),
+  showEmotes: document.querySelector("#showEmotes"),
+  hideSubscriptions: document.querySelector("#hideSubscriptions"),
+  hideCheers: document.querySelector("#hideCheers")
 };
 
 const resetButton = document.querySelector("#resetButton");
