@@ -43,9 +43,12 @@ coverage/
 # Extension package artifacts
 *.crx
 *.zip
+*.tar.gz
+TwitchCommentOverlay.tar.gz
 
 # Local review and store assets
 reviews/
+docs/
 assets/*
 !assets/icons/
 assets/icons/*
