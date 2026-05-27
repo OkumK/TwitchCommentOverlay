@@ -1,30 +1,32 @@
-# Security Policy
+# セキュリティポリシー
 
-## Supported Versions
+## サポート対象バージョン
 
-This repository currently supports the latest `main` branch only.
+このリポジトリでは、現時点で最新の `main` ブランチのみをサポート対象とします。
 
-## Reporting a Vulnerability
+## 脆弱性の報告
 
-Do not open a public issue for suspected vulnerabilities.
+脆弱性が疑われる内容を、公開 Issue として投稿しないでください。
 
-Report security issues privately through GitHub Security Advisories if available on the repository, or contact the maintainer directly through the repository owner profile. Include the affected file, reproduction steps, impact, and any suggested fix.
+セキュリティ上の問題は、リポジトリで GitHub Security Advisories が利用できる場合はそちらから非公開で報告してください。利用できない場合は、リポジトリ所有者のプロフィール経由でメンテナーへ直接連絡してください。
 
-## Public Repository Hygiene
+報告時には、影響を受けるファイル、再現手順、影響範囲、可能であれば修正案を含めてください。
 
-Before publishing or packaging, verify that the repository does not include private keys, extension signing keys, local `.env` files, or generated extension artifacts.
+## 公開リポジトリの管理
 
-The project intentionally ignores these local-only files:
+公開またはパッケージ作成の前に、リポジトリに秘密鍵、拡張機能の署名キー、ローカルの `.env` ファイル、生成済みの拡張機能アーティファクトが含まれていないことを確認してください。
+
+このプロジェクトでは、以下のローカル専用ファイルを意図的に無視します。
 
 - `*.pem`, `*.key`, `.env*`
 - `dist-package/`
 - `*.crx`, `*.zip`
 - `reviews/`
-- Chrome Web Store promotional assets outside `assets/icons/`
+- `assets/icons/` 以外の Chrome Web Store 用プロモーション素材
 
-## Security Checks
+## セキュリティチェック
 
-Run these checks before opening or merging a pull request:
+Pull Request の作成前またはマージ前に、以下のチェックを実行してください。
 
 ```bash
 npm run check
@@ -32,6 +34,6 @@ npm run security:audit
 npm test
 ```
 
-The GitHub workflows run dependency audit, DOM extraction tests, and CodeQL analysis on pull requests and supported branches.
+GitHub Actions では、Pull Request とサポート対象ブランチに対して依存関係監査、DOM 抽出テスト、CodeQL 解析を実行します。
 
-The extension should continue to avoid remote code execution and should render untrusted Twitch chat text only through text APIs such as `textContent` or `createTextNode`. Diagnostics must not persist extracted chat text, usernames, or emote text.
+この拡張機能では、引き続きリモートコード実行を避ける必要があります。また、信頼できない Twitch チャット本文は `textContent` や `createTextNode` などのテキスト API のみで描画してください。診断情報には、抽出したチャット本文、ユーザー名、スタンプテキストを永続保存してはいけません。
