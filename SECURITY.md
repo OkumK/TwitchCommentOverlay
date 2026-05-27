@@ -35,4 +35,3 @@ npm test
 The GitHub workflows run dependency audit, DOM extraction tests, and CodeQL analysis on pull requests and supported branches.
 
 The extension should continue to avoid remote code execution and should render untrusted Twitch chat text only through text APIs such as `textContent` or `createTextNode`. Diagnostics must not persist extracted chat text, usernames, or emote text.
-ed chat text, usernames, or emote text.
