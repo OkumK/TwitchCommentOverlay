@@ -1,6 +1,6 @@
 {
   "name": "twitch-comment-overlay",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Twitch chat overlay Chrome extension",
   "scripts": {

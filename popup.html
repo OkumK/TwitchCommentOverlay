@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,86 +9,86 @@
   <body>
     <main>
       <header>
-        <h1>Twitch Comment Overlay</h1>
-        <label class="switch" aria-label="表示の有効化">
+        <h1 data-i18n-text="headerTitle">Twitch Comment Overlay</h1>
+        <label class="switch" data-i18n-aria="enableOverlay">
           <input id="enabled" type="checkbox">
           <span></span>
         </label>
       </header>
 
-      <section class="slider-grid" aria-label="表示設定">
+      <section class="slider-grid" data-i18n-aria="displaySettings">
         <label class="slider-card" for="fontSize">
-          <span class="slider-card__title">文字サイズ</span>
+          <span class="slider-card__title" data-i18n-text="fontSize">Font size</span>
           <output id="fontSizeValue" class="slider-card__value">28 px</output>
           <input id="fontSize" type="range" min="16" max="56" step="1">
         </label>
 
         <label class="slider-card" for="speed">
-          <span class="slider-card__title">コメント表示秒数</span>
-          <output id="speedValue" class="slider-card__value">12 秒</output>
+          <span class="slider-card__title" data-i18n-text="commentDuration">Comment duration</span>
+          <output id="speedValue" class="slider-card__value">12 s</output>
           <input id="speed" type="range" min="5" max="24" step="1">
         </label>
 
         <label class="slider-card" for="opacity">
-          <span class="slider-card__title">透明度</span>
+          <span class="slider-card__title" data-i18n-text="opacity">Opacity</span>
           <output id="opacityValue" class="slider-card__value">95%</output>
           <input id="opacity" type="range" min="20" max="100" step="5">
         </label>
 
         <label class="slider-card" for="maxRows">
-          <span class="slider-card__title">表示行数</span>
-          <output id="maxRowsValue" class="slider-card__value">12 行</output>
+          <span class="slider-card__title" data-i18n-text="rows">Rows</span>
+          <output id="maxRowsValue" class="slider-card__value">12 rows</output>
           <input id="maxRows" type="range" min="3" max="20" step="1">
         </label>
       </section>
 
-      <section class="area-panel" aria-label="表示エリア">
+      <section class="area-panel" data-i18n-aria="displayArea">
         <div class="area-panel__header">
-          <span>表示エリア</span>
+          <span data-i18n-text="displayArea">Display area</span>
           <output id="areaRangeLabel">8% - 82%</output>
         </div>
-        <p class="area-panel__hint">上下ハンドルをドラッグして表示範囲を調整（最小幅 10%）</p>
+        <p class="area-panel__hint" data-i18n-text="areaHint">Drag the handles to adjust the visible range (minimum width: 10%)</p>
         <div id="areaEditor" class="area-editor" aria-hidden="true">
           <div class="area-editor__track"></div>
           <div id="areaSelection" class="area-editor__selection"></div>
-          <button id="areaStartHandle" class="area-editor__handle area-editor__handle--start" type="button" aria-label="上端位置"></button>
-          <button id="areaEndHandle" class="area-editor__handle area-editor__handle--end" type="button" aria-label="下端位置"></button>
+          <button id="areaStartHandle" class="area-editor__handle area-editor__handle--start" type="button" data-i18n-aria="topPosition"></button>
+          <button id="areaEndHandle" class="area-editor__handle area-editor__handle--end" type="button" data-i18n-aria="bottomPosition"></button>
         </div>
       </section>
 
-      <section class="toggle-list" aria-label="表示内容">
+      <section class="toggle-list" data-i18n-aria="displayContent">
         <label class="toggle-item" for="showUsernames">
           <input id="showUsernames" type="checkbox">
-          <span class="toggle-item__text">ユーザー名を表示</span>
+          <span class="toggle-item__text" data-i18n-text="showUsernames">Show usernames</span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="showBadges">
           <input id="showBadges" type="checkbox">
-          <span class="toggle-item__text">バッジを表示</span>
+          <span class="toggle-item__text" data-i18n-text="showBadges">Show badges</span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="showEmotes">
           <input id="showEmotes" type="checkbox">
-          <span class="toggle-item__text">スタンプを表示</span>
+          <span class="toggle-item__text" data-i18n-text="showEmotes">Show emotes</span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="hideSubscriptions">
           <input id="hideSubscriptions" type="checkbox">
-          <span class="toggle-item__text">サブスクを表示しない</span>
+          <span class="toggle-item__text" data-i18n-text="hideSubscriptions">Hide subscription messages</span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="hideCheers">
           <input id="hideCheers" type="checkbox">
-          <span class="toggle-item__text">チアーを表示しない</span>
+          <span class="toggle-item__text" data-i18n-text="hideCheers">Hide cheer messages</span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
       </section>
 
-      <button id="testOverlay" type="button">表示テスト</button>
+      <button id="testOverlay" type="button" data-i18n-text="testOverlay">Test overlay</button>
 
       <section class="diagnostics" aria-live="polite">
-        <span>状態</span>
-        <output id="diagnostics">接続待ち</output>
+        <span data-i18n-text="status">Status</span>
+        <output id="diagnostics" data-i18n-text="waitingConnection">Waiting for connection</output>
       </section>
     </main>
     <script src="settings.js"></script>

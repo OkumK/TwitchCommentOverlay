@@ -1,6 +1,6 @@
 # Privacy Policy
 
-[日本語版](PRIVACY_POLICY.md)
+[Japanese version](PRIVACY_POLICY.md)
 
 Last updated: May 24, 2026
 

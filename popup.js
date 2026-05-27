@@ -1,4 +1,13 @@
-const { DEFAULT_SETTINGS, POPUP_RANGES, SETTING_KEYS, clamp } = globalThis.TCO_SETTINGS;
+const {
+  DEFAULT_SETTINGS,
+  POPUP_RANGES,
+  SETTING_KEYS,
+  applyLocalizedContent,
+  clamp,
+  getLocalizedStrings,
+  normalizeLanguage,
+  normalizeSettings
+} = globalThis.TCO_SETTINGS;
 
 const controls = {
   enabled: document.querySelector("#enabled"),
@@ -33,6 +42,28 @@ const MIN_VERTICAL_GAP = 10;
 let areaDragState = null;
 let verticalStart = DEFAULT_SETTINGS.verticalStart;
 let verticalEnd = DEFAULT_SETTINGS.verticalEnd;
+let currentLanguage = normalizeLanguage(DEFAULT_SETTINGS.language);
+let popupStrings = getLocalizedStrings(currentLanguage, "popup");
+let latestDiagnostics = null;
+let controlsReady = false;
+
+function updateLocalization(language) {
+  currentLanguage = normalizeLanguage(language);
+  popupStrings = getLocalizedStrings(currentLanguage, "popup");
+  document.documentElement.lang = currentLanguage;
+  document.title = popupStrings.pageTitle;
+  applyLocalizedContent(document, popupStrings);
+
+  if (latestDiagnostics) {
+    renderDiagnostics(latestDiagnostics);
+  } else {
+    diagnosticsOutput.value = popupStrings.waitingConnection;
+  }
+
+  if (controlsReady) {
+    syncSliderOutputs();
+  }
+}
 
 function readControlValue(control) {
   if (control.type === "checkbox") {
@@ -53,16 +84,16 @@ function writeControlValue(control, value) {
 
 function formatSliderValue(key, value) {
   if (key === "fontSize") {
-    return `${value} px`;
+    return `${value} ${popupStrings.fontSizeUnit}`;
   }
   if (key === "speed") {
-    return `${value} 秒`;
+    return `${value} ${popupStrings.speedUnit}`;
   }
   if (key === "opacity") {
     return `${value}%`;
   }
   if (key === "maxRows") {
-    return `${value} 行`;
+    return `${value} ${popupStrings.maxRowsUnit}`;
   }
   return String(value);
 }
@@ -166,21 +197,22 @@ function attachAreaEditorEvents() {
 
 function formatDiagnostics(diagnostics) {
   if (!diagnostics) {
-    return "監視状態: 未接続";
+    return popupStrings.monitoringDisconnected;
   }
 
   const monitorState = diagnostics.observerMode === "chat-container"
-    ? "監視状態: 配信チャットに接続中"
-    : "監視状態: ページを探索中";
-  const messageCount = `検出コメント数: ${diagnostics.matchedMessageCount || 0}`;
+    ? popupStrings.monitoringConnected
+    : popupStrings.monitoringScanning;
+  const messageCount = `${popupStrings.detectedMessages}: ${diagnostics.matchedMessageCount || 0}`;
   const lastMessage = diagnostics.lastMessageAt
-    ? `最終コメント: ${new Date(diagnostics.lastMessageAt).toLocaleTimeString()}`
-    : "最終コメント: まだありません";
+    ? `${popupStrings.lastMessage}: ${new Date(diagnostics.lastMessageAt).toLocaleTimeString()}`
+    : `${popupStrings.lastMessage}: ${popupStrings.noneYet}`;
 
   return `${monitorState}\n${messageCount}\n${lastMessage}`;
 }
 
 function renderDiagnostics(diagnostics) {
+  latestDiagnostics = diagnostics || null;
   diagnosticsOutput.value = formatDiagnostics(diagnostics);
 }
 
@@ -200,12 +232,12 @@ function getRuntimeError() {
 
 function ensureContentScript(tab, callback) {
   if (!tab?.id) {
-    callback(new Error("アクティブなタブを取得できません"));
+    callback(new Error(popupStrings.couldNotGetActiveTab));
     return;
   }
 
   if (!TWITCH_URL_PATTERN.test(tab.url || "")) {
-    callback(new Error("Twitch の配信ページで開いてください"));
+    callback(new Error(popupStrings.openTwitchPage));
     return;
   }
 
@@ -267,20 +299,24 @@ function sendMessageToActiveTwitchTab(message, callback) {
 }
 
 chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
-  verticalStart = clamp(Number(settings.verticalStart), ...POPUP_RANGES.verticalStart);
-  verticalEnd = clamp(Number(settings.verticalEnd), ...POPUP_RANGES.verticalEnd);
+  const normalizedSettings = normalizeSettings(settings);
+  verticalStart = clamp(Number(normalizedSettings.verticalStart), ...POPUP_RANGES.verticalStart);
+  verticalEnd = clamp(Number(normalizedSettings.verticalEnd), ...POPUP_RANGES.verticalEnd);
   if (verticalEnd - verticalStart < MIN_VERTICAL_GAP) {
     verticalEnd = clamp(verticalStart + MIN_VERTICAL_GAP, ...POPUP_RANGES.verticalEnd);
   }
 
+  updateLocalization(normalizedSettings.language);
+
   for (const [key, control] of Object.entries(controls)) {
-    writeControlValue(control, settings[key]);
+    writeControlValue(control, normalizedSettings[key]);
     control.addEventListener("input", () => {
       chrome.storage.local.set({ [key]: readControlValue(control) });
       syncSliderOutputs();
     });
   }
 
+  controlsReady = true;
   syncSliderOutputs();
   syncAreaEditor();
   attachAreaEditorEvents();
@@ -297,6 +333,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   if (changes.tcoDiagnostics) {
     renderDiagnostics(changes.tcoDiagnostics.newValue);
+  }
+
+  if (changes.language) {
+    updateLocalization(changes.language.newValue);
   }
 
   if (changes.verticalStart || changes.verticalEnd) {
@@ -323,10 +363,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 testOverlayButton.addEventListener("click", () => {
-  renderStatus("表示テストを送信中...");
+  renderStatus(popupStrings.sendingTestMessage);
   sendMessageToActiveTwitchTab({ type: "TCO_TEST_MESSAGE" }, (error, response) => {
     if (error) {
-      renderStatus(`表示テスト失敗\n${error.message}`);
+      renderStatus(`${popupStrings.testFailed}\n${error.message}`);
       return;
     }
 

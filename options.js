@@ -1,7 +1,17 @@
-const { DEFAULT_SETTINGS, POPUP_RANGES, SETTING_KEYS, clamp } = globalThis.TCO_SETTINGS;
+const {
+  DEFAULT_SETTINGS,
+  POPUP_RANGES,
+  SETTING_KEYS,
+  applyLocalizedContent,
+  clamp,
+  getLocalizedStrings,
+  normalizeLanguage,
+  normalizeSettings
+} = globalThis.TCO_SETTINGS;
 
 const controls = {
   enabled: document.querySelector("#enabled"),
+  language: document.querySelector("#language"),
   fontSize: document.querySelector("#fontSize"),
   speed: document.querySelector("#speed"),
   opacity: document.querySelector("#opacity"),
@@ -18,10 +28,15 @@ const controls = {
 const resetButton = document.querySelector("#resetButton");
 const statusMessage = document.querySelector("#statusMessage");
 let statusTimer = null;
+let currentLanguage = normalizeLanguage(DEFAULT_SETTINGS.language);
+let optionStrings = getLocalizedStrings(currentLanguage, "options");
 
 function readControlValue(control) {
   if (control.type === "checkbox") {
     return control.checked;
+  }
+  if (control.tagName === "SELECT") {
+    return control.value;
   }
   return Number(control.value);
 }
@@ -45,9 +60,20 @@ function showStatus(message) {
 }
 
 function saveSettings(patch) {
+  if (typeof patch.language === "string") {
+    updateLocalization(patch.language);
+  }
   chrome.storage.local.set(patch, () => {
-    showStatus("保存しました");
+    showStatus(optionStrings.saved);
   });
+}
+
+function updateLocalization(language) {
+  currentLanguage = normalizeLanguage(language);
+  optionStrings = getLocalizedStrings(currentLanguage, "options");
+  document.documentElement.lang = currentLanguage;
+  document.title = optionStrings.pageTitle;
+  applyLocalizedContent(document, optionStrings);
 }
 
 function syncVerticalRange(changedKey, nextSettings) {
@@ -74,8 +100,10 @@ function syncVerticalRange(changedKey, nextSettings) {
 }
 
 chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
+  const normalizedSettings = normalizeSettings(settings);
+  updateLocalization(normalizedSettings.language);
   for (const [key, control] of Object.entries(controls)) {
-    writeControlValue(control, settings[key]);
+    writeControlValue(control, normalizedSettings[key]);
     control.addEventListener("input", () => {
       const nextSettings = { [key]: readControlValue(control) };
       syncVerticalRange(key, nextSettings);
@@ -95,6 +123,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
     writeControlValue(controls[key], change.newValue);
   }
+
+  if (changes.language) {
+    updateLocalization(changes.language.newValue);
+  }
 });
 
 resetButton.addEventListener("click", () => {
@@ -102,6 +134,7 @@ resetButton.addEventListener("click", () => {
     for (const [key, control] of Object.entries(controls)) {
       writeControlValue(control, DEFAULT_SETTINGS[key]);
     }
-    showStatus("デフォルト設定に戻しました");
+    updateLocalization(DEFAULT_SETTINGS.language);
+    showStatus(optionStrings.restoredDefaults);
   });
 });
