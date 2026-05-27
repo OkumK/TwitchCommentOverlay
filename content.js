@@ -1,5 +1,5 @@
 (() => {
-const CONTENT_SCRIPT_VERSION = "2026-05-26-badge-overlay";
+const CONTENT_SCRIPT_VERSION = "2026-05-28-video-area";
 const previousContentState = globalThis.TCO_CONTENT_STATE;
 let previousContextActive = false;
 
@@ -78,7 +78,23 @@ const CHEER_AMOUNT_SELECTORS = [
   "[data-test-selector='chat-line-message-cheer-amount']",
   "[data-test-selector='bits-cheer-amount']"
 ];
-
+const MESSAGE_TIMESTAMP_SELECTORS = [
+  "time[datetime]",
+  "[data-a-target='chat-message-timestamp']",
+  "[data-test-selector='chat-message-timestamp']",
+  "[data-timestamp]",
+  "[data-created-at]"
+];
+const VIDEO_VISIBILITY_SELECTORS = [
+  "video",
+  "[data-a-target='video-player']",
+  "[data-a-target='player-overlay-click-handler']",
+  ".video-player",
+  ".video-player__container",
+  ".player-overlay-background"
+];
+const INITIAL_MESSAGE_LOOKBACK_MS = 1000;
+const INITIAL_MESSAGE_RENDER_LIMIT = 20;
 let settings = { ...DEFAULT_SETTINGS };
 let overlayRoot = null;
 let observer = null;
@@ -89,6 +105,7 @@ let seenMessages = new WeakSet();
 let recentSignatures = new Map();
 let chatRetryTimer = null;
 let urlWatchTimer = null;
+let viewportRefreshAttached = false;
 let diagnostics = {
   observerMode: "not-started",
   chatContainerCount: 0,
@@ -113,6 +130,12 @@ function teardownContentScript() {
   if (urlWatchTimer) {
     window.clearInterval(urlWatchTimer);
     urlWatchTimer = null;
+  }
+
+  if (viewportRefreshAttached) {
+    window.removeEventListener("scroll", refreshOverlayVisibility, true);
+    window.removeEventListener("resize", refreshOverlayVisibility);
+    viewportRefreshAttached = false;
   }
 
   for (const timer of queuedCommentTimers) {
@@ -193,7 +216,151 @@ function createOverlay() {
   overlayRoot.id = "tco-overlay-root";
   document.documentElement.appendChild(overlayRoot);
   applySettings();
+  ensureViewportVisibilityTracking();
   return overlayRoot;
+}
+
+function getViewportBounds() {
+  return {
+    left: 0,
+    top: 0,
+    width: getViewportWidth(),
+    height: getViewportHeight()
+  };
+}
+
+function getVideoVisibilityTargets() {
+  const targets = VIDEO_VISIBILITY_SELECTORS
+    .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
+    .filter(Boolean);
+
+  return Array.from(new Set(targets));
+}
+
+function getRectArea(rect) {
+  return Math.max(0, rect.width) * Math.max(0, rect.height);
+}
+
+function getVisibleVideoBounds() {
+  const viewportWidth = getViewportWidth();
+  const viewportHeight = getViewportHeight();
+  let bestRect = null;
+  let bestArea = 0;
+
+  for (const element of getVideoVisibilityTargets()) {
+    const rect = element.getBoundingClientRect();
+    const visibleLeft = Math.max(0, rect.left);
+    const visibleTop = Math.max(0, rect.top);
+    const visibleRight = Math.min(viewportWidth, rect.right);
+    const visibleBottom = Math.min(viewportHeight, rect.bottom);
+    const visibleWidth = Math.max(0, visibleRight - visibleLeft);
+    const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+    const visibleArea = visibleWidth * visibleHeight;
+
+    if (visibleArea <= bestArea) {
+      continue;
+    }
+
+    bestArea = visibleArea;
+    bestRect = {
+      left: visibleLeft,
+      top: visibleTop,
+      width: visibleWidth,
+      height: visibleHeight
+    };
+  }
+
+  return bestRect;
+}
+
+function isElementVisibleInViewport(element) {
+  if (!(element instanceof Element)) {
+    return false;
+  }
+
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return false;
+  }
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  return rect.bottom > 0 && rect.right > 0 && rect.left < viewportWidth && rect.top < viewportHeight;
+}
+
+function isVideoVisibleOnScreen() {
+  return Boolean(getVisibleVideoBounds());
+}
+
+function getOverlayBounds() {
+  if (!settings.showOnlyWhenVideoVisible) {
+    return getViewportBounds();
+  }
+
+  return getVisibleVideoBounds();
+}
+
+function syncOverlayGeometry() {
+  if (!overlayRoot) {
+    return;
+  }
+
+  const bounds = getOverlayBounds();
+  if (!bounds) {
+    overlayRoot.classList.add("tco-hidden");
+    return;
+  }
+
+  overlayRoot.classList.remove("tco-hidden");
+  overlayRoot.style.left = `${bounds.left}px`;
+  overlayRoot.style.top = `${bounds.top}px`;
+  overlayRoot.style.width = `${bounds.width}px`;
+  overlayRoot.style.height = `${bounds.height}px`;
+  overlayRoot.style.setProperty("--tco-overlay-width", `${bounds.width}px`);
+  overlayRoot.style.setProperty("--tco-overlay-height", `${bounds.height}px`);
+}
+
+function shouldDisplayOverlay() {
+  if (!(settings.enabled && settings.displayMode === "niconico")) {
+    return false;
+  }
+
+  if (!settings.showOnlyWhenVideoVisible) {
+    return true;
+  }
+
+  return Boolean(getVisibleVideoBounds());
+}
+
+function isOverlayEnabled() {
+  return settings.enabled && settings.displayMode === "niconico";
+}
+
+function isOverlayVisible() {
+  if (!settings.showOnlyWhenVideoVisible) {
+    return true;
+  }
+
+  return Boolean(getVisibleVideoBounds());
+}
+
+function refreshOverlayVisibility() {
+  if (!overlayRoot) {
+    return;
+  }
+
+  syncOverlayGeometry();
+  overlayRoot.classList.toggle("tco-hidden", !shouldDisplayOverlay());
+}
+
+function ensureViewportVisibilityTracking() {
+  if (viewportRefreshAttached) {
+    return;
+  }
+
+  window.addEventListener("scroll", refreshOverlayVisibility, true);
+  window.addEventListener("resize", refreshOverlayVisibility);
+  viewportRefreshAttached = true;
 }
 
 function applySettings() {
@@ -201,7 +368,7 @@ function applySettings() {
     return;
   }
 
-  overlayRoot.classList.toggle("tco-hidden", !settings.enabled);
+  refreshOverlayVisibility();
   overlayRoot.style.setProperty("--tco-font-size", `${settings.fontSize}px`);
   overlayRoot.style.opacity = String(settings.opacity / 100);
 }
@@ -304,12 +471,61 @@ function findUniqueMatchingElements(root, selectors) {
   return Array.from(elements);
 }
 
+function parseTimestampCandidate(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsedDate = Date.parse(trimmed);
+  if (Number.isFinite(parsedDate)) {
+    return parsedDate;
+  }
+
+  const parsedNumber = Number(trimmed);
+  if (!Number.isFinite(parsedNumber)) {
+    return null;
+  }
+
+  return parsedNumber < 1e12 ? parsedNumber * 1000 : parsedNumber;
+}
+
+function getMessageTimestamp(messageNode) {
+  const timestampElement = findFirstMatchingElement(messageNode, MESSAGE_TIMESTAMP_SELECTORS);
+  if (!timestampElement) {
+    return null;
+  }
+
+  return (
+    parseTimestampCandidate(timestampElement.getAttribute("datetime")) ||
+    parseTimestampCandidate(timestampElement.getAttribute("data-timestamp")) ||
+    parseTimestampCandidate(timestampElement.getAttribute("data-created-at")) ||
+    parseTimestampCandidate(timestampElement.textContent || "")
+  );
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeText(value) {
   return value?.replace(/\s+/g, " ").trim() || "";
+}
+
+const URL_TEXT_PATTERN = /(^|[\s([{<"'`])((?:https?:\/\/|www\.)[^\s<>()[\]{}"'`]+)([)\]}>.,!?;:]*)/gi;
+
+function stripUrlsFromText(text) {
+  if (!text) {
+    return "";
+  }
+
+  return normalizeText(text.replace(URL_TEXT_PATTERN, (_match, prefix) => {
+    return /\s/.test(prefix || "") ? prefix : "";
+  }));
 }
 
 function includesAnyKeyword(value, keywords) {
@@ -444,6 +660,28 @@ function normalizeRenderableParts(parts, author) {
       cleaned.push({ type: "text", text: compact });
       continue;
     }
+    cleaned.push(part);
+  }
+
+  return cleaned;
+}
+
+function normalizeRenderablePartsForUrlVisibility(parts) {
+  if (settings.showUrls || parts.length === 0) {
+    return parts;
+  }
+
+  const cleaned = [];
+  for (const part of parts) {
+    if (part.type === "text") {
+      const text = stripUrlsFromText(part.text);
+      if (!text) {
+        continue;
+      }
+      cleaned.push({ ...part, text });
+      continue;
+    }
+
     cleaned.push(part);
   }
 
@@ -720,12 +958,44 @@ function getMessageParts(messageNode) {
     }
   }
 
+  const visibleText = settings.showUrls ? text : stripUrlsFromText(text);
+  const visibleRichParts = normalizeRenderablePartsForUrlVisibility(richParts);
+
   return {
     author,
-    text,
+    text: visibleText,
     badges: extractChatBadges(messageNode),
-    richParts
+    richParts: visibleRichParts
   };
+}
+
+function collectInitialMessageNodes(containers) {
+  const nodes = [];
+  const seen = new Set();
+
+  for (const container of containers) {
+    for (const node of container.querySelectorAll(CHAT_SELECTORS.join(", "))) {
+      if (seen.has(node)) {
+        continue;
+      }
+
+      seen.add(node);
+      nodes.push(node);
+    }
+  }
+
+  const cutoff = Date.now() - INITIAL_MESSAGE_LOOKBACK_MS;
+  const recentNodes = nodes.filter((node) => {
+    const timestamp = getMessageTimestamp(node);
+    return timestamp == null || timestamp >= cutoff;
+  });
+  const renderLimit = Math.max(1, Math.min(INITIAL_MESSAGE_RENDER_LIMIT, getCurrentRows()));
+
+  if (recentNodes.length <= renderLimit) {
+    return recentNodes;
+  }
+
+  return recentNodes.slice(-renderLimit);
 }
 
 function isSubscriptionNotice(messageNode) {
@@ -742,6 +1012,19 @@ function isCheerMessage(messageNode) {
   }
 
   return hasDataMarkerKeywords(messageNode, ["cheer", "bits"]);
+}
+
+function isNightbotMessage(messageNode) {
+  const authorNode = findFirstMatchingElement(messageNode, AUTHOR_SELECTORS);
+  const displayAuthor = normalizeComparableText(authorNode?.textContent || "");
+  const loginAuthor = normalizeComparableText(messageNode.getAttribute("data-a-user") || "");
+  const accessibleLabel = normalizeComparableText(messageNode.getAttribute("aria-label") || "");
+
+  return (
+    displayAuthor === "nightbot" ||
+    loginAuthor === "nightbot" ||
+    accessibleLabel.includes("nightbot")
+  );
 }
 
 function isDuplicate(author, text) {
@@ -777,8 +1060,27 @@ function getViewportWidth() {
   );
 }
 
-function getCurrentRows() {
-  return Math.max(Math.floor(settings.maxRows), 1);
+function getViewportHeight() {
+  return Math.max(
+    document.documentElement?.clientHeight || 0,
+    window.innerHeight || 0,
+    240
+  );
+}
+
+function getCommentRowHeightPx(commentHeightPx = 0) {
+  return Math.max(
+    commentHeightPx,
+    Math.ceil(settings.fontSize * 1.2),
+    24
+  ) + 2;
+}
+
+function getCurrentRows(commentHeightPx = 0) {
+  const overlayHeight = getOverlayBounds()?.height || getViewportHeight();
+  const usableHeightPx = Math.max(((settings.verticalEnd - settings.verticalStart) / 100) * overlayHeight, 10);
+  const safeRows = Math.floor(usableHeightPx / getCommentRowHeightPx(commentHeightPx));
+  return Math.max(1, Math.min(Math.floor(settings.maxRows), safeRows));
 }
 
 function getCommentGapPx() {
@@ -800,6 +1102,11 @@ function estimateCommentWidth(comment) {
 function measureCommentWidth(comment) {
   const rectWidth = comment.getBoundingClientRect?.().width || 0;
   return Math.ceil(Math.max(rectWidth, comment.offsetWidth || 0, estimateCommentWidth(comment)));
+}
+
+function measureCommentHeight(comment) {
+  const rectHeight = comment.getBoundingClientRect?.().height || 0;
+  return Math.ceil(Math.max(rectHeight, comment.offsetHeight || 0, getCommentRowHeightPx()));
 }
 
 function normalizeRowReservations(rows, now = getAnimationClock()) {
@@ -836,13 +1143,18 @@ function getSafeDelayForReservation(reservation, commentWidth, durationMs, now, 
 }
 
 function reserveCommentRow(comment, commentWidth, durationMs) {
-  const rows = getCurrentRows();
+  const commentHeight = measureCommentHeight(comment);
+  const rows = getCurrentRows(commentHeight);
   const now = getAnimationClock();
-  const viewportWidth = getViewportWidth();
-  const usableHeight = Math.max(settings.verticalEnd - settings.verticalStart, 10);
-  const rowHeight = usableHeight / rows;
+  const viewportWidth = getOverlayBounds()?.width || getViewportWidth();
+  const overlayHeight = getOverlayBounds()?.height || getViewportHeight();
+  const usableHeightPx = Math.max(((settings.verticalEnd - settings.verticalStart) / 100) * overlayHeight, 10);
+  const rowHeight = Math.max(usableHeightPx / rows, 1);
 
   normalizeRowReservations(rows, now);
+  if (rowReservations.reduce((sum, row) => sum + row.length, 0) < rows) {
+    rowCursor = 0;
+  }
 
   let selectedRow = 0;
   let selectedDelayMs = Number.POSITIVE_INFINITY;
@@ -869,7 +1181,7 @@ function reserveCommentRow(comment, commentWidth, durationMs) {
 
   return {
     rowIndex: selectedRow,
-    top: settings.verticalStart + rowHeight * selectedRow,
+    top: ((settings.verticalStart / 100) * overlayHeight) + rowHeight * selectedRow,
     delayMs: selectedDelayMs,
     reservation
   };
@@ -886,14 +1198,14 @@ function removeRowReservation(reservation) {
 }
 
 function activateComment(comment, rowPlacement, options) {
-  if (!contentState.active || (!settings.enabled && !options.force)) {
+  if (!contentState.active || ((!isOverlayEnabled() && !options.force) || !isOverlayVisible())) {
     removeRowReservation(rowPlacement.reservation);
     comment.remove();
     return;
   }
 
   rowPlacement.reservation.startTime = getAnimationClock();
-  comment.style.top = `${rowPlacement.top}vh`;
+  comment.style.top = `${rowPlacement.top}px`;
   comment.classList.remove("tco-comment--measuring");
   publishDiagnostics({
     lastMessageAt: new Date().toISOString()
@@ -901,7 +1213,22 @@ function activateComment(comment, rowPlacement, options) {
 }
 
 function displayComment({ author, text }, options = {}) {
-  if ((!settings.enabled && !options.force) || !text) {
+  const originalRichParts = options.richParts || [];
+  const richParts = settings.showEmotes
+    ? originalRichParts
+    : originalRichParts.filter((part) => part.type !== "emote");
+  const renderedText = settings.showUrls ? text : stripUrlsFromText(text);
+  const textFromRichParts = normalizeText(
+    richParts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join(" ")
+  );
+  const renderText = settings.showEmotes
+    ? renderedText
+    : (originalRichParts.length > 0 ? textFromRichParts : renderedText);
+
+  if (((!isOverlayEnabled() && !options.force) || !isOverlayVisible()) || (richParts.length === 0 && !renderText.trim())) {
     return;
   }
 
@@ -910,9 +1237,6 @@ function displayComment({ author, text }, options = {}) {
   comment.className = "tco-comment tco-comment--measuring";
   const durationMs = settings.speed * 1000;
   comment.style.animationDuration = `${settings.speed}s`;
-  if (options.force) {
-    root.classList.remove("tco-hidden");
-  }
 
   if (settings.showBadges && options.badges?.length) {
     for (const badgePart of options.badges) {
@@ -931,23 +1255,6 @@ function displayComment({ author, text }, options = {}) {
     const authorElement = document.createElement("strong");
     authorElement.textContent = author;
     comment.appendChild(authorElement);
-  }
-
-  const originalRichParts = options.richParts || [];
-  const richParts = settings.showEmotes
-    ? originalRichParts
-    : originalRichParts.filter((part) => part.type !== "emote");
-  const textFromRichParts = normalizeText(
-    richParts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join(" ")
-  );
-  const renderText = settings.showEmotes
-    ? text
-    : (originalRichParts.length > 0 ? textFromRichParts : text);
-  if (richParts.length === 0 && !renderText.trim()) {
-    return;
   }
 
   if (settings.showEmotes && richParts.length > 0) {
@@ -994,6 +1301,10 @@ function displayComment({ author, text }, options = {}) {
 }
 
 function handlePotentialMessage(node) {
+  if (settings.displayMode !== "niconico") {
+    return;
+  }
+
   const messageNode = findChatMessageNode(node);
   if (!messageNode) {
     return;
@@ -1012,6 +1323,10 @@ function handlePotentialMessage(node) {
     return;
   }
 
+  if (settings.hideNightbot && isNightbotMessage(messageNode)) {
+    return;
+  }
+
   seenMessages.add(messageNode);
   diagnostics.matchedMessageCount += 1;
   if (isDuplicate(message.author, message.text)) {
@@ -1022,6 +1337,31 @@ function handlePotentialMessage(node) {
     badges: message.badges,
     richParts: message.richParts
   });
+}
+
+function rememberExistingMessageNodes(containers) {
+  for (const node of collectInitialMessageNodes(containers)) {
+    const messageNode = findChatMessageNode(node);
+    if (messageNode) {
+      seenMessages.add(messageNode);
+    }
+  }
+}
+
+function resetCommentRenderingState() {
+  rowCursor = 0;
+  rowReservations = [];
+  recentSignatures.clear();
+
+  for (const timer of queuedCommentTimers) {
+    window.clearTimeout(timer);
+  }
+  queuedCommentTimers.clear();
+}
+
+function clearOverlayContent() {
+  overlayRoot?.replaceChildren();
+  resetCommentRenderingState();
 }
 
 function observeChat() {
@@ -1062,15 +1402,18 @@ function observeChat() {
 
   for (const container of containers) {
     observer.observe(container, { childList: true, subtree: true });
-    container.querySelectorAll(CHAT_SELECTORS.join(", ")).forEach((node) => {
-      handlePotentialMessage(node);
-    });
   }
+
+  rememberExistingMessageNodes(containers);
 
   publishDiagnostics({
     observerMode: "chat-container",
     chatContainerCount: containers.length
   });
+}
+
+function restartChatObservation() {
+  observeChat();
 }
 
 function loadSettings() {
@@ -1142,8 +1485,19 @@ safeChromeCall(() => {
       return;
     }
 
+    const wasOverlayVisible = shouldDisplayOverlay();
     settings = normalizeSettings(nextSettings);
     applySettings();
+
+    if (wasOverlayVisible && !shouldDisplayOverlay()) {
+      clearOverlayContent();
+    }
+
+    if (hasOwn(changes, "enabled") || hasOwn(changes, "displayMode")) {
+      seenMessages = new WeakSet();
+      resetCommentRenderingState();
+      restartChatObservation();
+    }
   });
 });
 
@@ -1188,13 +1542,13 @@ if (contentState.active) {
     }
 
     if (location.href === currentUrl) {
+      refreshOverlayVisibility();
       return;
     }
 
     currentUrl = location.href;
-    rowCursor = 0;
     seenMessages = new WeakSet();
-    recentSignatures.clear();
+    resetCommentRenderingState();
     observeChat();
   }, 1000);
 

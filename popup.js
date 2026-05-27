@@ -7,10 +7,16 @@ const {
   getLocalizedStrings,
   normalizeLanguage,
   normalizeSettings
-} = globalThis.TCO_SETTINGS;
+} = globalThis.TCO_SETTINGS || {};
+
+if (!DEFAULT_SETTINGS || !POPUP_RANGES || !SETTING_KEYS || !applyLocalizedContent || !clamp || !getLocalizedStrings || !normalizeLanguage || !normalizeSettings) {
+  throw new Error("TCO_SETTINGS is not available. Make sure settings.js loads before popup.js.");
+}
 
 const controls = {
   enabled: document.querySelector("#enabled"),
+  language: document.querySelector("#language"),
+  displayMode: document.querySelector("#displayMode"),
   fontSize: document.querySelector("#fontSize"),
   speed: document.querySelector("#speed"),
   opacity: document.querySelector("#opacity"),
@@ -18,8 +24,11 @@ const controls = {
   showUsernames: document.querySelector("#showUsernames"),
   showBadges: document.querySelector("#showBadges"),
   showEmotes: document.querySelector("#showEmotes"),
+  showUrls: document.querySelector("#showUrls"),
   hideSubscriptions: document.querySelector("#hideSubscriptions"),
-  hideCheers: document.querySelector("#hideCheers")
+  hideCheers: document.querySelector("#hideCheers"),
+  hideNightbot: document.querySelector("#hideNightbot"),
+  showOnlyWhenVideoVisible: document.querySelector("#showOnlyWhenVideoVisible")
 };
 
 const valueOutputs = {
@@ -32,14 +41,17 @@ const valueOutputs = {
 const diagnosticsOutput = document.querySelector("#diagnostics");
 const testOverlayButton = document.querySelector("#testOverlay");
 const areaEditor = document.querySelector("#areaEditor");
+const areaTrack = document.querySelector(".area-editor__track");
 const areaSelection = document.querySelector("#areaSelection");
 const areaStartHandle = document.querySelector("#areaStartHandle");
 const areaEndHandle = document.querySelector("#areaEndHandle");
 const areaRangeLabel = document.querySelector("#areaRangeLabel");
+const modeSections = Array.from(document.querySelectorAll("[data-mode-section]"));
 const TWITCH_URL_PATTERN = /^https:\/\/(www\.)?twitch\.tv\//;
 const MIN_VERTICAL_GAP = 10;
 
 let areaDragState = null;
+let areaEditorSyncFrame = null;
 let verticalStart = DEFAULT_SETTINGS.verticalStart;
 let verticalEnd = DEFAULT_SETTINGS.verticalEnd;
 let currentLanguage = normalizeLanguage(DEFAULT_SETTINGS.language);
@@ -65,9 +77,32 @@ function updateLocalization(language) {
   }
 }
 
+function syncModeSections(displayMode) {
+  for (const section of modeSections) {
+    section.hidden = section.dataset.modeSection !== displayMode;
+  }
+}
+
+function scheduleAreaEditorSync() {
+  if (areaEditorSyncFrame != null) {
+    const cancelFrame = window.cancelAnimationFrame || window.clearTimeout;
+    cancelFrame(areaEditorSyncFrame);
+  }
+
+  const scheduleFrame = window.requestAnimationFrame || ((callback) => window.setTimeout(callback, 0));
+  areaEditorSyncFrame = scheduleFrame(() => {
+    areaEditorSyncFrame = null;
+    syncAreaEditor();
+  });
+}
+
 function readControlValue(control) {
   if (control.type === "checkbox") {
     return control.checked;
+  }
+
+  if (control.tagName === "SELECT") {
+    return control.value;
   }
 
   return Number(control.value);
@@ -110,14 +145,21 @@ function syncSliderOutputs() {
 }
 
 function syncAreaEditor() {
-  if (!areaEditor || !areaSelection || !areaStartHandle || !areaEndHandle || !areaRangeLabel) {
+  if (!areaEditor || !areaTrack || !areaSelection || !areaStartHandle || !areaEndHandle || !areaRangeLabel) {
     return;
   }
 
-  areaSelection.style.top = `${verticalStart}%`;
-  areaSelection.style.height = `${Math.max(verticalEnd - verticalStart, MIN_VERTICAL_GAP)}%`;
-  areaStartHandle.style.top = `${verticalStart}%`;
-  areaEndHandle.style.top = `${verticalEnd}%`;
+  const editorRect = areaEditor.getBoundingClientRect();
+  const trackRect = areaTrack.getBoundingClientRect();
+  const trackTop = trackRect.top - editorRect.top;
+  const trackHeight = trackRect.height;
+  const startTop = trackTop + (verticalStart / 100) * trackHeight;
+  const endTop = trackTop + (verticalEnd / 100) * trackHeight;
+
+  areaSelection.style.top = `${startTop}px`;
+  areaSelection.style.height = `${Math.max(endTop - startTop, (MIN_VERTICAL_GAP / 100) * trackHeight)}px`;
+  areaStartHandle.style.top = `${startTop}px`;
+  areaEndHandle.style.top = `${endTop}px`;
   areaRangeLabel.value = `${verticalStart}% - ${verticalEnd}%`;
 }
 
@@ -147,7 +189,7 @@ function setVerticalRange(nextStart, nextEnd) {
 }
 
 function getPointerVerticalPercent(event) {
-  const rect = areaEditor.getBoundingClientRect();
+  const rect = areaTrack?.getBoundingClientRect?.() || areaEditor.getBoundingClientRect();
   const offsetY = event.clientY - rect.top;
   const ratio = clamp(offsetY / rect.height, 0, 1);
   return Math.round(ratio * 100);
@@ -311,14 +353,31 @@ chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
   for (const [key, control] of Object.entries(controls)) {
     writeControlValue(control, normalizedSettings[key]);
     control.addEventListener("input", () => {
-      chrome.storage.local.set({ [key]: readControlValue(control) });
+      const nextValue = readControlValue(control);
+      if (key === "language") {
+        updateLocalization(nextValue);
+      }
+      if (key === "displayMode") {
+        syncModeSections(nextValue);
+        if (nextValue === "niconico") {
+          scheduleAreaEditorSync();
+        }
+        chrome.storage.local.set({
+          displayMode: nextValue
+        });
+      } else {
+        chrome.storage.local.set({ [key]: nextValue });
+      }
       syncSliderOutputs();
     });
   }
 
   controlsReady = true;
+  syncModeSections(normalizedSettings.displayMode);
   syncSliderOutputs();
-  syncAreaEditor();
+  if (normalizedSettings.displayMode === "niconico") {
+    scheduleAreaEditorSync();
+  }
   attachAreaEditorEvents();
 });
 
@@ -337,6 +396,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   if (changes.language) {
     updateLocalization(changes.language.newValue);
+  }
+
+  if (changes.displayMode) {
+    syncModeSections(changes.displayMode.newValue);
+    if (changes.displayMode.newValue === "niconico") {
+      scheduleAreaEditorSync();
+    }
   }
 
   if (changes.verticalStart || changes.verticalEnd) {

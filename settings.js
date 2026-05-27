@@ -1,21 +1,27 @@
 (() => {
   const DEFAULT_LANGUAGE = "en";
   const SUPPORTED_LANGUAGES = ["en", "ja"];
+  const DEFAULT_DISPLAY_MODE = "niconico";
+  const SUPPORTED_DISPLAY_MODES = ["niconico", "comingSoon"];
 
   const DEFAULT_SETTINGS = {
     enabled: true,
     language: DEFAULT_LANGUAGE,
+    displayMode: DEFAULT_DISPLAY_MODE,
     fontSize: 25,
     speed: 10,
     opacity: 80,
     maxRows: 12,
-    verticalStart: 20,
-    verticalEnd: 80,
-    showUsernames: true,
+    verticalStart: 5,
+    verticalEnd: 35,
+    showUsernames: false,
     showBadges: false,
     showEmotes: true,
+    showUrls: true,
     hideSubscriptions: true,
-    hideCheers: true
+    hideCheers: true,
+    hideNightbot: false,
+    showOnlyWhenVideoVisible: false
   };
 
   const CONTENT_RANGES = {
@@ -56,22 +62,39 @@
       popup: {
         pageTitle: "Twitch Comment Overlay",
         headerTitle: "Twitch Comment Overlay",
+        language: "Language",
+        languageHelp: "Choose the language used in the popup",
+        english: "English (英語)",
+        japanese: "Japanese (日本語)",
         enableOverlay: "Enable overlay",
+        generalSettings: "General settings",
+        displayMode: "Display format",
+        displayModeHelp: "Choose which feature to configure below",
+        niconicoComments: "Niconico-style comments",
+        niconicoCommentsHelp: "Flow Twitch chat comments across the video",
+        comingSoonMode: "COmmingSoon",
+        comingSoonModeHelp: "This feature is not available yet",
         displaySettings: "Display settings",
+        displayTweaks: "Display tweaks",
         fontSize: "Font size",
         commentDuration: "Comment duration",
         opacity: "Opacity",
         rows: "Rows",
         displayArea: "Display area",
-        areaHint: "Drag the handles to adjust the visible range (minimum width: 10%)",
         topPosition: "Top position",
         bottomPosition: "Bottom position",
         displayContent: "Display content",
+        messageFilters: "Message filters",
         showUsernames: "Show usernames",
         showBadges: "Show badges",
         showEmotes: "Show emotes",
+        showUrls: "Show URLs",
         hideSubscriptions: "Hide subscription messages",
         hideCheers: "Hide cheer messages",
+        hideNightbot: "Hide Nightbot messages",
+        showOnlyWhenVideoVisible: "Show only over the video area",
+        showOnlyWhenVideoVisibleHelp: "Uses the player area as the comment display area",
+        hideNightbotHelp: "Hides messages sent by Nightbot",
         testOverlay: "Test overlay",
         status: "Status",
         waitingConnection: "Waiting for connection"
@@ -81,9 +104,15 @@
         headerTitle: "Twitch Comment Overlay Settings",
         language: "Language",
         languageHelp: "Choose the language used in the popup and options page",
-        english: "English",
-        japanese: "Japanese",
+        english: "English (英語)",
+        japanese: "Japanese (日本語)",
         enableOverlay: "Enable overlay",
+        displayMode: "Display format",
+        displayModeHelp: "Changing this switches the settings shown below by feature",
+        niconicoComments: "Niconico-style comments",
+        niconicoCommentsHelp: "Flow Twitch chat comments across the video",
+        comingSoonMode: "COmmingSoon",
+        comingSoonModeHelp: "This feature is not available yet",
         fontSize: "Font size",
         fontSizeHelp: "Adjusts the size of comment text",
         commentDuration: "Comment duration",
@@ -102,10 +131,18 @@
         showBadgesHelp: "Displays Twitch badges near the sender name",
         showEmotes: "Show emotes",
         showEmotesHelp: "Displays emote images found in chat messages",
+        showUrls: "Show URLs",
+        showUrlsHelp: "Displays URLs found in chat messages",
         hideSubscriptions: "Hide subscription messages",
         hideSubscriptionsHelp: "Hides subscription notification comments",
         hideCheers: "Hide cheer messages",
         hideCheersHelp: "Hides comments with Cheers (Bits)",
+        hideNightbot: "Hide Nightbot messages",
+        showOnlyWhenVideoVisible: "Show only over the video area",
+        showOnlyWhenVideoVisibleHelp: "Uses the player area as the comment display area",
+        hideNightbotHelp: "Hides messages sent by Nightbot",
+        comingSoonMode: "COmmingSoon",
+        comingSoonModeHelp: "This feature is not available yet",
         resetToDefaults: "Reset to defaults",
         saved: "Saved",
         restoredDefaults: "Restored default settings"
@@ -130,22 +167,38 @@
       popup: {
         pageTitle: "Twitch Comment Overlay",
         headerTitle: "Twitch Comment Overlay",
+        language: "言語",
+        languageHelp: "ポップアップに表示する言語を選択します",
+        english: "English（英語）",
+        japanese: "Japanese（日本語）",
         enableOverlay: "表示を有効にする",
+        generalSettings: "基本設定",
+        displayMode: "表示形式",
+        displayModeHelp: "以下で設定する機能を選択します",
+        niconicoComments: "ニコニコ風コメント表示",
+        niconicoCommentsHelp: "Twitch チャットを動画上に横流し表示します",
+        comingSoonMode: "COmmingSoon",
+        comingSoonModeHelp: "この機能はまだ利用できません",
         displaySettings: "表示設定",
+        displayTweaks: "表示調整",
         fontSize: "文字サイズ",
         commentDuration: "コメント表示秒数",
         opacity: "透明度",
         rows: "表示行数",
         displayArea: "表示エリア",
-        areaHint: "上下ハンドルをドラッグして表示範囲を調整（最小幅 10%）",
         topPosition: "上端位置",
         bottomPosition: "下端位置",
         displayContent: "表示内容",
+        messageFilters: "メッセージ除外",
         showUsernames: "ユーザー名を表示",
         showBadges: "バッジを表示",
         showEmotes: "スタンプを表示",
+        showUrls: "URL を表示",
         hideSubscriptions: "サブスクを表示しない",
         hideCheers: "チアーを表示しない",
+        hideNightbot: "Nightbot を表示しない",
+        showOnlyWhenVideoVisible: "動画エリアの上だけに表示",
+        showOnlyWhenVideoVisibleHelp: "コメントの表示領域を Twitch プレイヤーの範囲に限定します",
         testOverlay: "表示テスト",
         status: "状態",
         waitingConnection: "接続待ち"
@@ -155,9 +208,15 @@
         headerTitle: "Twitch Comment Overlay 設定",
         language: "言語",
         languageHelp: "ポップアップと設定画面に表示する言語を選択します",
-        english: "英語",
-        japanese: "日本語",
+        english: "English（英語）",
+        japanese: "Japanese（日本語）",
         enableOverlay: "表示を有効にする",
+        displayMode: "表示形式",
+        displayModeHelp: "この設定を変えると、以降の設定項目が機能単位で切り替わります",
+        niconicoComments: "ニコニコ風コメント表示",
+        niconicoCommentsHelp: "Twitch チャットを動画上に横流し表示します",
+        comingSoonMode: "COmmingSoon",
+        comingSoonModeHelp: "この機能はまだ利用できません",
         fontSize: "文字サイズ",
         fontSizeHelp: "コメント文字の大きさを調整します",
         commentDuration: "コメント表示秒数",
@@ -176,10 +235,18 @@
         showBadgesHelp: "投稿者名付近に表示される Twitch バッジを表示します",
         showEmotes: "スタンプを表示",
         showEmotesHelp: "チャット内のスタンプ画像を表示します",
+        showUrls: "URL を表示",
+        showUrlsHelp: "チャットメッセージ内の URL を表示します",
         hideSubscriptions: "サブスクを表示しない",
         hideSubscriptionsHelp: "サブスク通知コメントを非表示にします",
         hideCheers: "チアーを表示しない",
         hideCheersHelp: "チアー（Bits）付きコメントを非表示にします",
+        hideNightbot: "Nightbot を表示しない",
+        hideNightbotHelp: "Nightbot が投稿したコメントを非表示にします",
+        showOnlyWhenVideoVisible: "動画エリアの上だけに表示",
+        showOnlyWhenVideoVisibleHelp: "コメントの表示領域を Twitch プレイヤーの範囲に限定します",
+        comingSoonMode: "COmmingSoon",
+        comingSoonModeHelp: "この機能はまだ利用できません",
         resetToDefaults: "デフォルトに戻す",
         saved: "保存しました",
         restoredDefaults: "デフォルト設定に戻しました"
@@ -239,6 +306,20 @@
     return SUPPORTED_LANGUAGES.includes(fallback) ? fallback : DEFAULT_LANGUAGE;
   }
 
+  function normalizeDisplayMode(value, fallback = DEFAULT_DISPLAY_MODE) {
+    if (typeof value === "string") {
+      const normalizedValue = value.trim();
+      if (normalizedValue === "fullscreenPlus") {
+        return "comingSoon";
+      }
+      if (SUPPORTED_DISPLAY_MODES.includes(normalizedValue)) {
+        return normalizedValue;
+      }
+    }
+
+    return SUPPORTED_DISPLAY_MODES.includes(fallback) ? fallback : DEFAULT_DISPLAY_MODE;
+  }
+
   function normalizeSettings(rawSettings) {
     const source = rawSettings || {};
     const next = { ...DEFAULT_SETTINGS };
@@ -255,6 +336,10 @@
     next.verticalStart = normalizeNumber(next.verticalStart, DEFAULT_SETTINGS.verticalStart, ...CONTENT_RANGES.verticalStart);
     next.verticalEnd = normalizeNumber(next.verticalEnd, DEFAULT_SETTINGS.verticalEnd, ...CONTENT_RANGES.verticalEnd);
     next.language = normalizeLanguage(next.language, DEFAULT_SETTINGS.language);
+    next.displayMode = normalizeDisplayMode(
+      hasOwn(source, "displayMode") ? next.displayMode : undefined,
+      normalizeBoolean(source.fullscreenPlus, false) ? "comingSoon" : DEFAULT_SETTINGS.displayMode
+    );
 
     if (next.verticalStart >= next.verticalEnd) {
       next.verticalEnd = clamp(next.verticalStart + 10, ...CONTENT_RANGES.verticalEnd);
@@ -266,6 +351,7 @@
     next.showUsernames = normalizeBoolean(next.showUsernames, DEFAULT_SETTINGS.showUsernames);
     next.showBadges = normalizeBoolean(next.showBadges, DEFAULT_SETTINGS.showBadges);
     next.showEmotes = normalizeBoolean(next.showEmotes, DEFAULT_SETTINGS.showEmotes);
+    next.showUrls = normalizeBoolean(next.showUrls, DEFAULT_SETTINGS.showUrls);
     next.hideSubscriptions = normalizeBoolean(next.hideSubscriptions, DEFAULT_SETTINGS.hideSubscriptions);
     next.hideCheers = normalizeBoolean(next.hideCheers, DEFAULT_SETTINGS.hideCheers);
     next.enabled = normalizeBoolean(next.enabled, DEFAULT_SETTINGS.enabled);
@@ -312,7 +398,9 @@
   const exported = {
     DEFAULT_SETTINGS,
     DEFAULT_LANGUAGE,
+    DEFAULT_DISPLAY_MODE,
     SUPPORTED_LANGUAGES,
+    SUPPORTED_DISPLAY_MODES,
     I18N,
     POPUP_RANGES,
     SETTING_KEYS,
@@ -320,6 +408,7 @@
     hasOwn,
     getLocalizedStrings,
     normalizeLanguage,
+    normalizeDisplayMode,
     normalizeSettings,
     applyLocalizedContent
   };

@@ -74,6 +74,18 @@ function createMessage({ author = "Alice", body } = {}) {
   return message;
 }
 
+function createTimestampedMessage({ author = "Alice", body, timestamp } = {}) {
+  const message = createMessage({ author, body });
+  if (timestamp) {
+    const time = document.createElement("time");
+    time.setAttribute("datetime", timestamp);
+    time.textContent = timestamp;
+    message.appendChild(time);
+  }
+
+  return message;
+}
+
 function createBody(children) {
   const body = document.createElement("span");
   body.setAttribute("data-a-target", "chat-line-message-body");
@@ -104,6 +116,15 @@ function createBadge(alt) {
   return badge;
 }
 
+function createVideoElement(rect) {
+  const video = document.createElement("video");
+  Object.defineProperty(video, "getBoundingClientRect", {
+    value: () => rect
+  });
+  document.body.appendChild(video);
+  return video;
+}
+
 function displayedComments() {
   return Array.from(document.querySelectorAll(".tco-comment"), (comment) => comment.textContent);
 }
@@ -128,7 +149,15 @@ function waitForMutationObserver() {
   });
 }
 
+function getStorageChangeListener() {
+  return globalThis.chrome.storage.onChanged.addListener.mock.calls[0]?.[0];
+}
+
 beforeEach(() => {
+  Object.defineProperty(window, "innerHeight", {
+    value: 1080,
+    configurable: true
+  });
   globalThis.TCO_CONTENT_STATE?.cleanup?.();
   delete globalThis.TCO_CONTENT_STATE;
   delete globalThis.TCO_CONTENT_READY;
@@ -157,6 +186,34 @@ test("renders emotes as images for mixed Twitch message bodies", async () => {
   expect(displayedEmotes()).toEqual([
     expect.objectContaining({ alt: "Kappa" })
   ]);
+});
+
+test("strips URLs from messages when showUrls is disabled", async () => {
+  const container = createChatContainer();
+  loadContentScript({ showUrls: false });
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("check https://example.com please")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["check please"]);
+});
+
+test("strips wrapped URLs from messages when showUrls is disabled", async () => {
+  const container = createChatContainer();
+  loadContentScript({ showUrls: false });
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("visit <https://example.com> and https://example.org.")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["visit and"]);
 });
 
 test("keeps targeted message text that equals the author's display name", async () => {
@@ -210,6 +267,197 @@ test("does not render Twitch chat badges when disabled", async () => {
 
   expect(displayedComments()).toEqual(["hello"]);
   expect(displayedBadges()).toEqual([]);
+});
+
+test("does not enable coming soon styles by default", () => {
+  loadContentScript();
+
+  expect(document.documentElement.classList.contains("tco-fullscreen-plus-enabled")).toBe(false);
+  expect(document.getElementById("tco-fullscreen-plus-style")).toBeNull();
+});
+
+test("keeps the coming soon display mode as a no-op", async () => {
+  loadContentScript({ displayMode: "comingSoon" });
+
+  expect(document.documentElement.classList.contains("tco-fullscreen-plus-enabled")).toBe(false);
+  expect(document.getElementById("tco-fullscreen-plus-style")).toBeNull();
+
+  const container = createChatContainer();
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("coming soon native chat only")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual([]);
+  expect(document.documentElement.classList.contains("tco-fullscreen-plus-enabled")).toBe(false);
+});
+
+test("does not render existing chat messages on startup", async () => {
+  const container = createChatContainer();
+
+  for (let index = 0; index < 30; index += 1) {
+    container.appendChild(createMessage({
+      body: createBody([
+        createTextFragment(`message ${index}`)
+      ])
+    }));
+  }
+
+  loadContentScript();
+
+  expect(displayedComments()).toEqual([]);
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("new message")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["new message"]);
+});
+
+test("marks recent startup messages as seen without displaying them", async () => {
+  const container = createChatContainer();
+  const now = Date.now();
+  const older = new Date(now - 2000).toISOString();
+  const recent = new Date(now - 500).toISOString();
+
+  for (let index = 0; index < 4; index += 1) {
+    container.appendChild(createTimestampedMessage({
+      body: createBody([
+        createTextFragment(`old ${index}`)
+      ]),
+      timestamp: older
+    }));
+  }
+
+  for (let index = 0; index < 2; index += 1) {
+    container.appendChild(createTimestampedMessage({
+      body: createBody([
+        createTextFragment(`recent ${index}`)
+      ]),
+      timestamp: recent
+    }));
+  }
+
+  loadContentScript();
+
+  expect(displayedComments()).toEqual([]);
+
+  container.appendChild(createTimestampedMessage({
+    body: createBody([
+      createTextFragment("after startup")
+    ]),
+    timestamp: new Date().toISOString()
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["after startup"]);
+});
+
+test("does not replay existing messages when comments are enabled after startup", async () => {
+  const container = createChatContainer();
+  loadContentScript({ enabled: false });
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("existing while disabled")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  const onChanged = getStorageChangeListener();
+  onChanged({
+    enabled: {
+      newValue: true,
+      oldValue: false
+    }
+  }, "local");
+
+  expect(displayedComments()).toEqual([]);
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("new after enable")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["new after enable"]);
+});
+
+test("clears visible comments when toggling comments off then on", async () => {
+  const container = createChatContainer();
+  loadContentScript();
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("before off")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["before off"]);
+
+  const onChanged = getStorageChangeListener();
+  onChanged({
+    enabled: {
+      newValue: false,
+      oldValue: true
+    }
+  }, "local");
+
+  expect(displayedComments()).toEqual([]);
+
+  onChanged({
+    enabled: {
+      newValue: true,
+      oldValue: false
+    }
+  }, "local");
+
+  expect(displayedComments()).toEqual([]);
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("after on")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["after on"]);
+});
+
+test("resets the row cursor when the layout is not full", async () => {
+  const container = createChatContainer();
+  loadContentScript({ maxRows: 3 });
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("first")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  const firstComment = document.querySelector(".tco-comment");
+  expect(firstComment).not.toBeNull();
+  expect(firstComment.style.top).toBe("54px");
+
+  firstComment.dispatchEvent(new Event("animationend"));
+  await waitForMutationObserver();
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("second")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  const comments = Array.from(document.querySelectorAll(".tco-comment"));
+  expect(comments.at(-1).style.top).toBe("54px");
 });
 
 test("ignores author-only fallback nodes without message text", async () => {
@@ -342,6 +590,21 @@ test("hides cheer messages when hideCheers is enabled", async () => {
   expect(displayedComments()).toEqual([]);
 });
 
+test("hides Nightbot messages when hideNightbot is enabled", async () => {
+  const container = createChatContainer();
+  loadContentScript({ hideNightbot: true });
+
+  container.appendChild(createMessage({
+    author: "Nightbot",
+    body: createBody([
+      createTextFragment("Automated reminder")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual([]);
+});
+
 test("does not hide normal tier chat when subscription filter is enabled", async () => {
   const container = createChatContainer();
   loadContentScript({ hideSubscriptions: true });
@@ -396,6 +659,57 @@ test("does not hide normal bits chat when cheer filter is enabled", async () => 
   await waitForMutationObserver();
 
   expect(displayedComments()).toEqual(["bits of lag"]);
+});
+
+test("hides comments when the video area is off screen and the visibility setting is enabled", async () => {
+  const container = createChatContainer();
+  createVideoElement({
+    top: 1200,
+    left: 0,
+    right: 1280,
+    bottom: 1360,
+    width: 1280,
+    height: 160
+  });
+  loadContentScript({ showOnlyWhenVideoVisible: true });
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("not visible")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual([]);
+  expect(document.querySelector("#tco-overlay-root")?.classList.contains("tco-hidden")).toBe(true);
+});
+
+test("limits the overlay to the visible video area when the visibility setting is enabled", async () => {
+  const container = createChatContainer();
+  createVideoElement({
+    top: 12,
+    left: 24,
+    right: 824,
+    bottom: 462,
+    width: 800,
+    height: 450
+  });
+  loadContentScript({ showOnlyWhenVideoVisible: true });
+
+  container.appendChild(createMessage({
+    body: createBody([
+      createTextFragment("visible")
+    ])
+  }));
+  await waitForMutationObserver();
+
+  expect(displayedComments()).toEqual(["visible"]);
+  const overlayRoot = document.querySelector("#tco-overlay-root");
+  expect(overlayRoot?.classList.contains("tco-hidden")).toBe(false);
+  expect(overlayRoot?.style.left).toBe("24px");
+  expect(overlayRoot?.style.top).toBe("12px");
+  expect(overlayRoot?.style.width).toBe("800px");
+  expect(overlayRoot?.style.height).toBe("450px");
 });
 
 test("hides emote-only messages when showEmotes is disabled", async () => {

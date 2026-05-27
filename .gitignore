@@ -46,13 +46,21 @@ coverage/
 *.tar.gz
 TwitchCommentOverlay.tar.gz
 
-# Local review and store assets
+# Local review, private specs, and store/sample assets
 reviews/
+docs/**/*.webp
 docs/
 assets/*
 !assets/icons/
 assets/icons/*
-!assets/icons/icon-*.png
+!assets/icons/icon-16.png
+!assets/icons/icon-32.png
+!assets/icons/icon-48.png
+!assets/icons/icon-128.png
+!assets/icons/icon-disabled-16.png
+!assets/icons/icon-disabled-32.png
+!assets/icons/icon-disabled-48.png
+!assets/icons/icon-disabled-128.png
 tests/
 
 # Python cache and virtual environments

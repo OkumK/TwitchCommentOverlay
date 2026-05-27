@@ -9,91 +9,261 @@
   <body>
     <main>
       <header>
-        <h1 data-i18n-text="headerTitle">Twitch Comment Overlay Settings</h1>
+        <h1 class="setting-title" data-i18n-text="headerTitle">Twitch Comment Overlay Settings</h1>
       </header>
 
       <label class="checkbox">
         <input id="enabled" type="checkbox">
-        <span data-i18n-text="enableOverlay">Enable overlay</span>
+        <span class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 3v7"></path>
+            <path d="M7.5 7.5a6.5 6.5 0 1 0 9 0"></path>
+          </svg>
+          <span data-i18n-text="enableOverlay">Enable overlay</span>
+        </span>
       </label>
 
       <label>
-        <span data-i18n-text="language">Language</span>
+        <span class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5"></circle>
+            <path d="M3.5 12h17"></path>
+            <path d="M12 3.5a13 13 0 0 0 0 17"></path>
+            <path d="M12 3.5a13 13 0 0 1 0 17"></path>
+          </svg>
+          <span data-i18n-text="language">Language</span>
+        </span>
         <select id="language">
-          <option value="en" data-i18n-text="english">English</option>
-          <option value="ja" data-i18n-text="japanese">Japanese</option>
+          <option value="en" data-i18n-text="english">English (英語)</option>
+          <option value="ja" data-i18n-text="japanese">Japanese (日本語)</option>
         </select>
         <small data-i18n-text="languageHelp">Choose the language used in the popup and options page</small>
       </label>
 
       <label>
-        <span data-i18n-text="fontSize">Font size</span>
-        <input id="fontSize" type="range" min="16" max="56" step="1">
-        <small data-i18n-text="fontSizeHelp">Adjusts the size of comment text</small>
+        <span class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <rect x="4" y="5.5" width="16" height="11" rx="2"></rect>
+            <path d="M9 19h6"></path>
+          </svg>
+          <span data-i18n-text="displayMode">Display format</span>
+        </span>
+        <select id="displayMode">
+          <option value="niconico" data-i18n-text="niconicoComments">Niconico-style comments</option>
+          <option value="comingSoon" data-i18n-text="comingSoonMode">COmmingSoon</option>
+        </select>
+        <small data-i18n-text="displayModeHelp">Changing this switches the settings shown below by feature</small>
       </label>
 
-      <label>
-        <span data-i18n-text="commentDuration">Comment duration</span>
-        <input id="speed" type="range" min="5" max="24" step="1">
-        <small data-i18n-text="commentDurationHelp">How long a comment stays on screen</small>
-      </label>
+      <section class="feature-settings" data-mode-section="niconico">
+        <h2 class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M5 7h14"></path>
+            <path d="M5 12h14"></path>
+            <path d="M5 17h14"></path>
+          </svg>
+          <span data-i18n-text="niconicoComments">Niconico-style comments</span>
+        </h2>
+        <p data-i18n-text="niconicoCommentsHelp">Flow Twitch chat comments across the video</p>
 
-      <label>
-        <span data-i18n-text="opacity">Opacity</span>
-        <input id="opacity" type="range" min="20" max="100" step="5">
-        <small data-i18n-text="opacityHelp">Controls the transparency of the overlay</small>
-      </label>
+        <label>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <text x="12" y="16" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Aa</text>
+            </svg>
+            <span data-i18n-text="fontSize">Font size</span>
+          </span>
+          <input id="fontSize" type="range" min="16" max="56" step="1">
+          <small data-i18n-text="fontSizeHelp">Adjusts the size of comment text</small>
+        </label>
 
-      <label>
-        <span data-i18n-text="rows">Rows</span>
-        <input id="maxRows" type="range" min="3" max="20" step="1">
-        <small data-i18n-text="rowsHelp">Maximum number of rows shown at once</small>
-      </label>
+        <label>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8.5"></circle>
+              <path d="M12 7v5l3 2"></path>
+            </svg>
+            <span data-i18n-text="commentDuration">Comment duration</span>
+          </span>
+          <input id="speed" type="range" min="5" max="24" step="1">
+          <small data-i18n-text="commentDurationHelp">How long a comment stays on screen</small>
+        </label>
 
-      <label>
-        <span data-i18n-text="topPosition">Top position</span>
-        <input id="verticalStart" type="range" min="0" max="90" step="1">
-        <small data-i18n-text="topPositionHelp">Top edge of the display area as a percentage from the top</small>
-      </label>
+        <label>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 4c2.5 3 5.5 6 5.5 9.5a5.5 5.5 0 0 1-11 0C6.5 10 9.5 7 12 4Z"></path>
+            </svg>
+            <span data-i18n-text="opacity">Opacity</span>
+          </span>
+          <input id="opacity" type="range" min="20" max="100" step="5">
+          <small data-i18n-text="opacityHelp">Controls the transparency of the overlay</small>
+        </label>
 
-      <label>
-        <span data-i18n-text="bottomPosition">Bottom position</span>
-        <input id="verticalEnd" type="range" min="10" max="100" step="1">
-        <small data-i18n-text="bottomPositionHelp">Bottom edge of the display area as a percentage from the top</small>
-      </label>
+        <label>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M5 7h14"></path>
+              <path d="M5 12h14"></path>
+              <path d="M5 17h14"></path>
+            </svg>
+            <span data-i18n-text="rows">Rows</span>
+          </span>
+          <input id="maxRows" type="range" min="3" max="20" step="1">
+          <small data-i18n-text="rowsHelp">Maximum number of rows shown at once</small>
+        </label>
 
-      <label class="checkbox">
-        <input id="showUsernames" type="checkbox">
-        <span data-i18n-text="showUsernames">Show usernames</span>
-        <small data-i18n-text="showUsernamesHelp">Displays the sender name before each comment</small>
-      </label>
+        <label>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M8 4v4"></path>
+              <path d="M16 4v4"></path>
+              <path d="M8 20v-4"></path>
+              <path d="M16 20v-4"></path>
+            </svg>
+            <span data-i18n-text="topPosition">Top position</span>
+          </span>
+          <input id="verticalStart" type="range" min="0" max="90" step="1">
+          <small data-i18n-text="topPositionHelp">Top edge of the display area as a percentage from the top</small>
+        </label>
 
-      <label class="checkbox">
-        <input id="showBadges" type="checkbox">
-        <span data-i18n-text="showBadges">Show badges</span>
-        <small data-i18n-text="showBadgesHelp">Displays Twitch badges near the sender name</small>
-      </label>
+        <label>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M8 4v4"></path>
+              <path d="M16 4v4"></path>
+              <path d="M8 20v-4"></path>
+              <path d="M16 20v-4"></path>
+            </svg>
+            <span data-i18n-text="bottomPosition">Bottom position</span>
+          </span>
+          <input id="verticalEnd" type="range" min="10" max="100" step="1">
+          <small data-i18n-text="bottomPositionHelp">Bottom edge of the display area as a percentage from the top</small>
+        </label>
 
-      <label class="checkbox">
-        <input id="showEmotes" type="checkbox">
-        <span data-i18n-text="showEmotes">Show emotes</span>
-        <small data-i18n-text="showEmotesHelp">Displays emote images found in chat messages</small>
-      </label>
+        <label class="checkbox">
+          <input id="showUsernames" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="3.5"></circle>
+              <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"></path>
+            </svg>
+            <span data-i18n-text="showUsernames">Show usernames</span>
+          </span>
+          <small data-i18n-text="showUsernamesHelp">Displays the sender name before each comment</small>
+        </label>
 
-      <label class="checkbox">
-        <input id="hideSubscriptions" type="checkbox">
-        <span data-i18n-text="hideSubscriptions">Hide subscription messages</span>
-        <small data-i18n-text="hideSubscriptionsHelp">Hides subscription notification comments</small>
-      </label>
+        <label class="checkbox">
+          <input id="showBadges" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 3.5l2.4 4.8 5.3.8-3.8 3.7.9 5.2-4.8-2.5-4.8 2.5.9-5.2-3.8-3.7 5.3-.8L12 3.5Z"></path>
+            </svg>
+            <span data-i18n-text="showBadges">Show badges</span>
+          </span>
+          <small data-i18n-text="showBadgesHelp">Displays Twitch badges near the sender name</small>
+        </label>
 
-      <label class="checkbox">
-        <input id="hideCheers" type="checkbox">
-        <span data-i18n-text="hideCheers">Hide cheer messages</span>
-        <small data-i18n-text="hideCheersHelp">Hides comments with Cheers (Bits)</small>
-      </label>
+        <label class="checkbox">
+          <input id="showEmotes" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8.5"></circle>
+              <path d="M8.5 14c1.2 1.4 2.5 2 3.5 2s2.3-.6 3.5-2"></path>
+              <path d="M9 10h.01"></path>
+              <path d="M15 10h.01"></path>
+            </svg>
+            <span data-i18n-text="showEmotes">Show emotes</span>
+          </span>
+          <small data-i18n-text="showEmotesHelp">Displays emote images found in chat messages</small>
+        </label>
+
+        <label class="checkbox">
+          <input id="showUrls" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4.5" y="8.5" width="7" height="7" rx="3.5"></rect>
+              <rect x="12.5" y="8.5" width="7" height="7" rx="3.5"></rect>
+              <path d="M9.5 12h5"></path>
+            </svg>
+            <span data-i18n-text="showUrls">Show URLs</span>
+          </span>
+          <small data-i18n-text="showUrlsHelp">Displays URLs found in chat messages</small>
+        </label>
+
+        <label class="checkbox">
+          <input id="hideSubscriptions" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4.5" y="6.5" width="15" height="11" rx="2"></rect>
+              <path d="M4.5 8.5l7.5 5 7.5-5"></path>
+            </svg>
+            <span data-i18n-text="hideSubscriptions">Hide subscription messages</span>
+          </span>
+          <small data-i18n-text="hideSubscriptionsHelp">Hides subscription notification comments</small>
+        </label>
+
+        <label class="checkbox">
+          <input id="hideCheers" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 3.5l1.8 4.2 4.5.4-3.4 2.9 1 4.4L12 13l-3.9 2.4 1-4.4-3.4-2.9 4.5-.4L12 3.5Z"></path>
+            </svg>
+            <span data-i18n-text="hideCheers">Hide cheer messages</span>
+          </span>
+          <small data-i18n-text="hideCheersHelp">Hides comments with Cheers (Bits)</small>
+        </label>
+
+        <label class="checkbox">
+          <input id="hideNightbot" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="5" y="6.5" width="14" height="10" rx="3"></rect>
+              <path d="M9 11h.01"></path>
+              <path d="M15 11h.01"></path>
+              <path d="M9 15h6"></path>
+            </svg>
+            <span data-i18n-text="hideNightbot">Hide Nightbot messages</span>
+          </span>
+          <small data-i18n-text="hideNightbotHelp">Hides messages sent by Nightbot</small>
+        </label>
+
+        <label class="checkbox">
+          <input id="showOnlyWhenVideoVisible" type="checkbox">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="6" width="12" height="12" rx="2"></rect>
+              <path d="M18 9l2.5 1.5v2L18 14"></path>
+              <path d="M8 10.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2Z"></path>
+            </svg>
+            <span data-i18n-text="showOnlyWhenVideoVisible">Show only when video is visible</span>
+          </span>
+          <small data-i18n-text="showOnlyWhenVideoVisibleHelp">Hides comments when the Twitch player is off screen</small>
+        </label>
+      </section>
+
+      <section class="feature-settings" data-mode-section="comingSoon">
+        <h2 class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M8 4h8v6l-2 2 2 2v6H8v-6l2-2-2-2V4Z"></path>
+          </svg>
+          <span data-i18n-text="comingSoonMode">COmmingSoon</span>
+        </h2>
+        <p data-i18n-text="comingSoonModeHelp">This feature is not available yet</p>
+      </section>
 
       <footer>
-        <button id="resetButton" type="button" data-i18n-text="resetToDefaults">Reset to defaults</button>
+        <button id="resetButton" type="button">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M5 12a7 7 0 1 1 2 4.9"></path>
+              <path d="M5 8v4h4"></path>
+            </svg>
+            <span data-i18n-text="resetToDefaults">Reset to defaults</span>
+          </span>
+        </button>
         <output id="statusMessage" aria-live="polite"></output>
       </footer>
     </main>

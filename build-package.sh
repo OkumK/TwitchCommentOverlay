@@ -6,6 +6,7 @@ DIST_DIR="$SRC_DIR/dist-package"
 
 FILES=(
   manifest.json
+  service_worker.js
   settings.js
   content.js
   overlay.css
@@ -23,6 +24,10 @@ ICON_FILES=(
   icon-32.png
   icon-48.png
   icon-128.png
+  icon-disabled-16.png
+  icon-disabled-32.png
+  icon-disabled-48.png
+  icon-disabled-128.png
 )
 
 echo "[INFO] Source: $SRC_DIR"
@@ -54,7 +59,9 @@ for file in "${FILES[@]}"; do
 done
 
 mkdir -p "$DIST_DIR/$ICON_DIR"
-cp "$SRC_DIR/$ICON_DIR/"* "$DIST_DIR/$ICON_DIR/"
+for file in "${ICON_FILES[@]}"; do
+  cp "$SRC_DIR/$ICON_DIR/$file" "$DIST_DIR/$ICON_DIR/"
+done
 
 echo "[INFO] Package folder created successfully."
 echo "[INFO] Files:"

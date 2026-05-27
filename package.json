@@ -4,7 +4,7 @@
   "private": true,
   "description": "Twitch chat overlay Chrome extension",
   "scripts": {
-    "check": "node --check settings.js && node --check content.js && node --check popup.js && node --check options.js",
+    "check": "node --check settings.js && node --check content.js && node --check popup.js && node --check options.js && node --check service_worker.js",
     "security:audit": "npm audit --audit-level=moderate && npm audit --omit=dev --audit-level=moderate",
     "test": "node node_modules/vitest/vitest.mjs run --globals",
     "test:watch": "node node_modules/vitest/vitest.mjs --globals"

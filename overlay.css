@@ -13,15 +13,18 @@
 
 .tco-comment {
   position: absolute;
-  left: 100vw;
+  left: 100%;
   display: inline-flex;
   align-items: center;
-  max-width: 90vw;
+  gap: 0.18em;
+  box-sizing: border-box;
+  padding: 0.18em 0.28em 0.2em;
+  max-width: 90%;
   white-space: nowrap;
   color: #fff;
   font-size: var(--tco-font-size, 28px);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.1;
   text-shadow:
     -1px -1px 0 #000,
     1px -1px 0 #000,
@@ -41,8 +44,8 @@
 }
 
 .tco-comment strong {
-  margin-right: 0.45em;
   color: var(--tco-user-color, #c084fc);
+  flex: 0 0 auto;
 }
 
 .tco-comment .tco-badge {
@@ -55,8 +58,8 @@
   max-height: calc(var(--tco-font-size, 28px) * 0.75);
   flex: 0 0 auto;
   object-fit: contain;
-  margin-right: 0.16em;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.65));
+  flex: 0 0 auto;
 }
 
 .tco-comment .tco-emote {
@@ -70,7 +73,7 @@
   flex: 0 0 auto;
   object-fit: contain;
   vertical-align: middle;
-  margin: 0 0.08em;
+  margin: 0;
 }
 
 @keyframes tco-slide-left {
@@ -79,6 +82,8 @@
   }
 
   to {
-    transform: translateX(calc(-100vw - 100%));
+    transform: translateX(calc(-100% - var(--tco-overlay-width, 100vw)));
   }
+}
+}
 }

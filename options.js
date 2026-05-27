@@ -12,6 +12,7 @@ const {
 const controls = {
   enabled: document.querySelector("#enabled"),
   language: document.querySelector("#language"),
+  displayMode: document.querySelector("#displayMode"),
   fontSize: document.querySelector("#fontSize"),
   speed: document.querySelector("#speed"),
   opacity: document.querySelector("#opacity"),
@@ -21,12 +22,16 @@ const controls = {
   showUsernames: document.querySelector("#showUsernames"),
   showBadges: document.querySelector("#showBadges"),
   showEmotes: document.querySelector("#showEmotes"),
+  showUrls: document.querySelector("#showUrls"),
   hideSubscriptions: document.querySelector("#hideSubscriptions"),
-  hideCheers: document.querySelector("#hideCheers")
+  hideCheers: document.querySelector("#hideCheers"),
+  hideNightbot: document.querySelector("#hideNightbot"),
+  showOnlyWhenVideoVisible: document.querySelector("#showOnlyWhenVideoVisible")
 };
 
 const resetButton = document.querySelector("#resetButton");
 const statusMessage = document.querySelector("#statusMessage");
+const modeSections = Array.from(document.querySelectorAll("[data-mode-section]"));
 let statusTimer = null;
 let currentLanguage = normalizeLanguage(DEFAULT_SETTINGS.language);
 let optionStrings = getLocalizedStrings(currentLanguage, "options");
@@ -76,6 +81,12 @@ function updateLocalization(language) {
   applyLocalizedContent(document, optionStrings);
 }
 
+function syncModeSections(displayMode) {
+  for (const section of modeSections) {
+    section.hidden = section.dataset.modeSection !== displayMode;
+  }
+}
+
 function syncVerticalRange(changedKey, nextSettings) {
   if (changedKey !== "verticalStart" && changedKey !== "verticalEnd") {
     return;
@@ -107,9 +118,13 @@ chrome.storage.local.get(DEFAULT_SETTINGS, (settings) => {
     control.addEventListener("input", () => {
       const nextSettings = { [key]: readControlValue(control) };
       syncVerticalRange(key, nextSettings);
+      if (key === "displayMode") {
+        syncModeSections(nextSettings.displayMode);
+      }
       saveSettings(nextSettings);
     });
   }
+  syncModeSections(normalizedSettings.displayMode);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -127,6 +142,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.language) {
     updateLocalization(changes.language.newValue);
   }
+
+  if (changes.displayMode) {
+    syncModeSections(changes.displayMode.newValue);
+  }
 });
 
 resetButton.addEventListener("click", () => {
@@ -135,6 +154,7 @@ resetButton.addEventListener("click", () => {
       writeControlValue(control, DEFAULT_SETTINGS[key]);
     }
     updateLocalization(DEFAULT_SETTINGS.language);
+    syncModeSections(DEFAULT_SETTINGS.displayMode);
     showStatus(optionStrings.restoredDefaults);
   });
 });

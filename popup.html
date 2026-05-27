@@ -10,44 +10,109 @@
     <main>
       <header>
         <h1 data-i18n-text="headerTitle">Twitch Comment Overlay</h1>
-        <label class="switch" data-i18n-aria="enableOverlay">
-          <input id="enabled" type="checkbox">
-          <span></span>
-        </label>
+        <div class="header-controls">
+          <label class="language-switch" for="language">
+            <span class="setting-title language-switch__label">
+              <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="8.5"></circle>
+                <path d="M3.5 12h17"></path>
+                <path d="M12 3.5a13 13 0 0 0 0 17"></path>
+                <path d="M12 3.5a13 13 0 0 1 0 17"></path>
+              </svg>
+              <span data-i18n-text="language">Language</span>
+            </span>
+            <select id="language" class="language-switch__select">
+              <option value="en" data-i18n-text="english">English (英語)</option>
+              <option value="ja" data-i18n-text="japanese">Japanese (日本語)</option>
+            </select>
+          </label>
+          <label class="switch" data-i18n-aria="enableOverlay">
+            <input id="enabled" type="checkbox">
+            <span></span>
+          </label>
+        </div>
       </header>
 
-      <section class="slider-grid" data-i18n-aria="displaySettings">
+      <section class="mode-panel">
+        <label class="mode-select" for="displayMode">
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="5.5" width="16" height="11" rx="2"></rect>
+              <path d="M9 19h6"></path>
+            </svg>
+            <span data-i18n-text="displayMode">Display format</span>
+          </span>
+          <select id="displayMode">
+            <option value="niconico" data-i18n-text="niconicoComments">Niconico-style comments</option>
+            <option value="comingSoon" data-i18n-text="comingSoonMode">COmmingSoon</option>
+          </select>
+        </label>
+        <p data-i18n-text="displayModeHelp">Choose which feature to configure below</p>
+      </section>
+
+      <section class="slider-grid" data-mode-section="niconico" data-i18n-aria="displaySettings">
         <label class="slider-card" for="fontSize">
-          <span class="slider-card__title" data-i18n-text="fontSize">Font size</span>
+          <span class="slider-card__title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <text x="12" y="16" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Aa</text>
+            </svg>
+            <span data-i18n-text="fontSize">Font size</span>
+          </span>
           <output id="fontSizeValue" class="slider-card__value">28 px</output>
           <input id="fontSize" type="range" min="16" max="56" step="1">
         </label>
 
         <label class="slider-card" for="speed">
-          <span class="slider-card__title" data-i18n-text="commentDuration">Comment duration</span>
+          <span class="slider-card__title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8.5"></circle>
+              <path d="M12 7v5l3 2"></path>
+            </svg>
+            <span data-i18n-text="commentDuration">Comment duration</span>
+          </span>
           <output id="speedValue" class="slider-card__value">12 s</output>
           <input id="speed" type="range" min="5" max="24" step="1">
         </label>
 
         <label class="slider-card" for="opacity">
-          <span class="slider-card__title" data-i18n-text="opacity">Opacity</span>
+          <span class="slider-card__title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 4c2.5 3 5.5 6 5.5 9.5a5.5 5.5 0 0 1-11 0C6.5 10 9.5 7 12 4Z"></path>
+            </svg>
+            <span data-i18n-text="opacity">Opacity</span>
+          </span>
           <output id="opacityValue" class="slider-card__value">95%</output>
           <input id="opacity" type="range" min="20" max="100" step="5">
         </label>
 
         <label class="slider-card" for="maxRows">
-          <span class="slider-card__title" data-i18n-text="rows">Rows</span>
+          <span class="slider-card__title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M5 7h14"></path>
+              <path d="M5 12h14"></path>
+              <path d="M5 17h14"></path>
+            </svg>
+            <span data-i18n-text="rows">Rows</span>
+          </span>
           <output id="maxRowsValue" class="slider-card__value">12 rows</output>
           <input id="maxRows" type="range" min="3" max="20" step="1">
         </label>
       </section>
 
-      <section class="area-panel" data-i18n-aria="displayArea">
+      <section class="area-panel" data-mode-section="niconico" data-i18n-aria="displayArea">
         <div class="area-panel__header">
-          <span data-i18n-text="displayArea">Display area</span>
-          <output id="areaRangeLabel">8% - 82%</output>
+          <span class="setting-title">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M8 4v4"></path>
+              <path d="M16 4v4"></path>
+              <path d="M8 20v-4"></path>
+              <path d="M16 20v-4"></path>
+            </svg>
+            <span data-i18n-text="displayArea">Display area</span>
+          </span>
+          <output id="areaRangeLabel">5% - 35%</output>
         </div>
-        <p class="area-panel__hint" data-i18n-text="areaHint">Drag the handles to adjust the visible range (minimum width: 10%)</p>
         <div id="areaEditor" class="area-editor" aria-hidden="true">
           <div class="area-editor__track"></div>
           <div id="areaSelection" class="area-editor__selection"></div>
@@ -56,38 +121,130 @@
         </div>
       </section>
 
-      <section class="toggle-list" data-i18n-aria="displayContent">
+      <section class="toggle-list" data-mode-section="niconico" data-i18n-aria="displayContent">
         <label class="toggle-item" for="showUsernames">
           <input id="showUsernames" type="checkbox">
-          <span class="toggle-item__text" data-i18n-text="showUsernames">Show usernames</span>
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="3.5"></circle>
+              <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6"></path>
+            </svg>
+            <span data-i18n-text="showUsernames">Show usernames</span>
+          </span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="showBadges">
           <input id="showBadges" type="checkbox">
-          <span class="toggle-item__text" data-i18n-text="showBadges">Show badges</span>
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 3.5l2.4 4.8 5.3.8-3.8 3.7.9 5.2-4.8-2.5-4.8 2.5.9-5.2-3.8-3.7 5.3-.8L12 3.5Z"></path>
+            </svg>
+            <span data-i18n-text="showBadges">Show badges</span>
+          </span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="showEmotes">
           <input id="showEmotes" type="checkbox">
-          <span class="toggle-item__text" data-i18n-text="showEmotes">Show emotes</span>
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8.5"></circle>
+              <path d="M8.5 14c1.2 1.4 2.5 2 3.5 2s2.3-.6 3.5-2"></path>
+              <path d="M9 10h.01"></path>
+              <path d="M15 10h.01"></path>
+            </svg>
+            <span data-i18n-text="showEmotes">Show emotes</span>
+          </span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="showUrls">
+          <input id="showUrls" type="checkbox">
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4.5" y="8.5" width="7" height="7" rx="3.5"></rect>
+              <rect x="12.5" y="8.5" width="7" height="7" rx="3.5"></rect>
+              <path d="M9.5 12h5"></path>
+            </svg>
+            <span data-i18n-text="showUrls">Show URLs</span>
+          </span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="hideSubscriptions">
           <input id="hideSubscriptions" type="checkbox">
-          <span class="toggle-item__text" data-i18n-text="hideSubscriptions">Hide subscription messages</span>
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4.5" y="6.5" width="15" height="11" rx="2"></rect>
+              <path d="M4.5 8.5l7.5 5 7.5-5"></path>
+            </svg>
+            <span data-i18n-text="hideSubscriptions">Hide subscription messages</span>
+          </span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
         <label class="toggle-item" for="hideCheers">
           <input id="hideCheers" type="checkbox">
-          <span class="toggle-item__text" data-i18n-text="hideCheers">Hide cheer messages</span>
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M12 3.5l1.8 4.2 4.5.4-3.4 2.9 1 4.4L12 13l-3.9 2.4 1-4.4-3.4-2.9 4.5-.4L12 3.5Z"></path>
+            </svg>
+            <span data-i18n-text="hideCheers">Hide cheer messages</span>
+          </span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="hideNightbot">
+          <input id="hideNightbot" type="checkbox">
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="5" y="6.5" width="14" height="10" rx="3"></rect>
+              <path d="M9 11h.01"></path>
+              <path d="M15 11h.01"></path>
+              <path d="M9 15h6"></path>
+            </svg>
+            <span data-i18n-text="hideNightbot">Hide Nightbot messages</span>
+          </span>
+          <span class="toggle-item__switch" aria-hidden="true"></span>
+        </label>
+        <label class="toggle-item" for="showOnlyWhenVideoVisible">
+          <input id="showOnlyWhenVideoVisible" type="checkbox">
+          <span class="toggle-item__text">
+            <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="4" y="6" width="12" height="12" rx="2"></rect>
+              <path d="M18 9l2.5 1.5v2L18 14"></path>
+              <path d="M8 10.5c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2Z"></path>
+            </svg>
+            <span data-i18n-text="showOnlyWhenVideoVisible">Show only when video is visible</span>
+          </span>
           <span class="toggle-item__switch" aria-hidden="true"></span>
         </label>
       </section>
 
-      <button id="testOverlay" type="button" data-i18n-text="testOverlay">Test overlay</button>
+      <section class="feature-note" data-mode-section="comingSoon">
+        <strong class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M8 4h8v6l-2 2 2 2v6H8v-6l2-2-2-2V4Z"></path>
+          </svg>
+          <span data-i18n-text="comingSoonMode">COmmingSoon</span>
+        </strong>
+        <p data-i18n-text="comingSoonModeHelp">This feature is not available yet</p>
+      </section>
 
-      <section class="diagnostics" aria-live="polite">
-        <span data-i18n-text="status">Status</span>
+      <button id="testOverlay" type="button" data-mode-section="niconico">
+        <span class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M8 6l10 6-10 6V6Z"></path>
+          </svg>
+          <span data-i18n-text="testOverlay">Test overlay</span>
+        </span>
+      </button>
+
+      <section class="diagnostics" data-mode-section="niconico" aria-live="polite">
+        <span class="setting-title">
+          <svg class="setting-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4.5 18.5h15"></path>
+            <path d="M7 15.5v-3"></path>
+            <path d="M12 15.5V9"></path>
+            <path d="M17 15.5v-6"></path>
+          </svg>
+          <span data-i18n-text="status">Status</span>
+        </span>
         <output id="diagnostics" data-i18n-text="waitingConnection">Waiting for connection</output>
       </section>
     </main>

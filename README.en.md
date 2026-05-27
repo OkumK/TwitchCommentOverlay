@@ -61,3 +61,17 @@ Click "Reset to defaults" to restore the initial settings.
 If Twitch changes its page structure, chat selector updates may be required.
 
 This extension uses Twitch chat text and usernames for overlay display. Diagnostics store monitoring status, detected counts, and a short preview of the latest comment.
+
+## Roadmap
+
+### Small features
+
+- Comment speed easing
+- Settings presets
+
+### Larger features
+
+- Expand the current display mode into a NicoNico-style chat feature
+- Add an overlay display mode that can show Twitch chat as semi-transparent
+ chat feature
+- Add an overlay display mode that can show Twitch chat as semi-transparent
